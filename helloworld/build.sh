@@ -1,3 +1,3 @@
-git fetch
+git pull
 make clean-l
 make
