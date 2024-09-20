@@ -9,5 +9,8 @@ func.o: func.cpp
 main.o: main.cpp
 	g++ -c main.cpp -o main.o
 
-clean:
+clean-w:
 	del /Q func.o main.o main.exe
+
+clean-l:
+	rm func.o main.o main.exe
