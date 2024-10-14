@@ -13,7 +13,7 @@
 // #include <iostream>
 #include "background.hpp"
 
-int signed start_background(const char *program_path)
+int start_background(const char *program_path, int& status)
 {
     // std::cout << program_path << "\n";
 
@@ -21,7 +21,7 @@ int signed start_background(const char *program_path)
 
     STARTUPINFO si{};
     PROCESS_INFORMATION pi;
-    int status = CreateProcess(program_path, // the path
+    int success = CreateProcess(program_path, // the path
                                NULL,         // Command line
                                NULL,         // Process handle not inheritable
                                NULL,         // Thread handle not inheritable
@@ -33,17 +33,17 @@ int signed start_background(const char *program_path)
                                &pi           // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
     );
 
-    // if (status == 0) {
-    //     std::cout << status << " " << GetLastError() << "\n";
-    // }
+    if (success == 0) {
+        status = GetLastError();
+    }
 
     return pi.dwProcessId;
 
 #else
 
     pid_t pid;
-    char *argv[] = {};
-    int status = posix_spawn(
+    char *const argv[] = {NULL};
+    status = posix_spawnp(
         &pid,
         program_path,
         NULL,
@@ -55,6 +55,11 @@ int signed start_background(const char *program_path)
 
     return pid;
 #endif
+}
+
+int start_background(const char *program_path) {
+    int status{};
+    return start_background(program_path, status);
 }
 
 int wait_program(const int signed pid)
@@ -76,4 +81,20 @@ int wait_program(const int signed pid)
     return status;
 
 #endif
+}
+
+int start_wait(const char *program_path, bool is_wait)
+{
+    int status{};
+    int pid = start_background(program_path, status);
+
+    if (status != 0) {
+        return status;
+    }
+
+    if (is_wait)
+    {
+        return wait_program(pid);
+    }
+    return 0;
 }
