@@ -15,32 +15,35 @@
 
 int signed start_background(const char *program_path)
 {
+    // std::cout << program_path << "\n";
 
 #ifdef _WIN32
 
-    STARTUPINFO si;
+    STARTUPINFO si{};
     PROCESS_INFORMATION pi;
-    CreateProcess(program_path, // the path
-                  NULL,         // Command line
-                  NULL,         // Process handle not inheritable
-                  NULL,         // Thread handle not inheritable
-                  FALSE,        // Set handle inheritance to FALSE
-                  0,            // No creation flags
-                  NULL,         // Use parent's environment block
-                  NULL,         // Use parent's starting directory
-                  &si,          // Pointer to STARTUPINFO structure
-                  &pi           // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+    int status = CreateProcess(program_path, // the path
+                               NULL,         // Command line
+                               NULL,         // Process handle not inheritable
+                               NULL,         // Thread handle not inheritable
+                               FALSE,        // Set handle inheritance to FALSE
+                               0,            // No creation flags
+                               NULL,         // Use parent's environment block
+                               NULL,         // Use parent's starting directory
+                               &si,          // Pointer to STARTUPINFO structure
+                               &pi           // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
     );
 
-    // std::cout << "Process id: " << pi.dwProcessId << "\n";
+    // if (status == 0) {
+    //     std::cout << status << " " << GetLastError() << "\n";
+    // }
+
     return pi.dwProcessId;
 
 #else
-    int status;
 
     pid_t pid;
     char *argv[] = {};
-    status = posix_spawn(
+    int status = posix_spawn(
         &pid,
         program_path,
         NULL,
@@ -59,7 +62,10 @@ int wait_program(const int signed pid)
 #ifdef _WIN32
 
     HANDLE handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-    return WaitForSingleObject(handle, INFINITE);
+    signed int status = WaitForSingleObject(handle, INFINITE);
+    CloseHandle(handle);
+
+    return status;
 
 #else
 

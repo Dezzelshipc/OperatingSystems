@@ -1,16 +1,40 @@
 #include "background.hpp"
 #include <iostream>
 
+#include <cstring>
+#include <filesystem>
+namespace fs = std::filesystem;
+
 int main(int argc, char **argv)
 {
+
 #ifdef _WIN32
-    const auto path = "C:\\Programs\\Github\\Operating-systems\\task2\\subprogram.exe";
+    const char *in_path = "..\\subprogram.exe";
 #else
-    const auto path = "/home/dezz/Github/Operating-systems/task2/subprogram";
+    const char *in_path = "..\\subprogram";
 #endif
 
+    if (argc > 1)
+    {
+        in_path = argv[1];
+    }
+
+    fs::path path{in_path};
+
+    if (path.is_relative())
+    {
+        path = fs::absolute(path);
+    }
+
+    if (!fs::exists(path))
+    {
+        std::cout << path << " Not exists\n";
+        return 0;
+    }
+
     std::cout << path << "\n";
-    auto pid = start_background(path);
+
+    auto pid = start_background(path.string().c_str());
     auto exit_code = wait_program(pid);
 
     std::cout << pid << " " << exit_code << " Ended" << "\n";
