@@ -119,11 +119,12 @@ void copies_thread(const std::atomic_bool &is_thread_running, const char *progra
         else
         {
             int status{};
-            std::string cmd_call = std::format("{} ", program_name);
-            char *cmd1 = (char *)(cmd_call + "1").c_str();
-            char *cmd2 = (char *)(cmd_call + "2").c_str();
-            proclib::start_process(cmd1, status);
-            proclib::start_process(cmd2, status);
+            int agrc = 2;
+            char *argv[] = {(char*)program_name, (char*)"1", 0};
+            proclib::start_process(2, argv, status);
+
+            argv[1] = (char *)"2";
+            proclib::start_process(2, argv, status);
         }
         shared_data.Unlock();
         std::this_thread::sleep_for(time_sleep);

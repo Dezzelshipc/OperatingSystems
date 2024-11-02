@@ -16,16 +16,19 @@
 
 namespace proclib
 {
-    int start_process(char *command_line, int &status)
+    int start_process(int argc, char** argv, int &status)
     {
-        // std::cout << program_path << "\n";
 
 #ifdef WIN32
+        std::string command_line = "";
+        for (int i = 0; i < argc; ++i) {
+            command_line += std::format("{} ", argv[i]);
+        }
 
         STARTUPINFOA si{};
         PROCESS_INFORMATION pi;
         int success = CreateProcessA(NULL,         // the path
-                                     command_line, // Command line
+                                     (char*)command_line.c_str(), // Command line
                                      NULL,         // Process handle not inheritable
                                      NULL,         // Thread handle not inheritable
                                      FALSE,        // Set handle inheritance to FALSE
