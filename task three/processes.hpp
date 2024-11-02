@@ -7,6 +7,8 @@
 #include <spawn.h>
 #include <wait.h>
 #include <string.h>
+#include <time.h>
+#include <chrono>
 
 #endif
 
@@ -16,27 +18,28 @@
 
 namespace proclib
 {
-    int start_process(int argc, char** argv, int &status)
+    int start_process(int argc, char **argv, int &status)
     {
 
 #ifdef WIN32
         std::string command_line = "";
-        for (int i = 0; i < argc; ++i) {
+        for (int i = 0; i < argc; ++i)
+        {
             command_line += std::format("{} ", argv[i]);
         }
 
         STARTUPINFOA si{};
         PROCESS_INFORMATION pi;
-        int success = CreateProcessA(NULL,         // the path
-                                     (char*)command_line.c_str(), // Command line
-                                     NULL,         // Process handle not inheritable
-                                     NULL,         // Thread handle not inheritable
-                                     FALSE,        // Set handle inheritance to FALSE
-                                     0,            // No creation flags
-                                     NULL,         // Use parent's environment block
-                                     NULL,         // Use parent's starting directory
-                                     &si,          // Pointer to STARTUPINFO structure
-                                     &pi           // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+        int success = CreateProcessA(NULL,                         // the path
+                                     (char *)command_line.c_str(), // Command line
+                                     NULL,                         // Process handle not inheritable
+                                     NULL,                         // Thread handle not inheritable
+                                     FALSE,                        // Set handle inheritance to FALSE
+                                     0,                            // No creation flags
+                                     NULL,                         // Use parent's environment block
+                                     NULL,                         // Use parent's starting directory
+                                     &si,                          // Pointer to STARTUPINFO structure
+                                     &pi                           // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
         );
 
         if (success == 0)
@@ -53,16 +56,13 @@ namespace proclib
 #else
 
         pid_t pid;
-        char *const argv[] = {NULL};
         status = posix_spawnp(
             &pid,
-            program_path,
+            argv[0],
             NULL,
             NULL,
             argv,
             NULL);
-
-        // std::cout << strerror(status) << "\n";
 
         return pid;
 #endif
@@ -71,25 +71,44 @@ namespace proclib
     int get_current_pid()
     {
 #ifdef WIN32
-    return GetCurrentProcessId();
+        return GetCurrentProcessId();
 #else
-    return getpid();
+        return getpid();
 #endif
     }
 
     std::string get_current_time_str()
     {
 #ifdef WIN32
-    SYSTEMTIME st;
-    GetLocalTime(&st);
+        SYSTEMTIME st;
+        GetLocalTime(&st);
 
-    return std::format("{:0>4}-{:0>2}-{:0>2} {:0>2}:{:0>2}:{:0>2}.{:0>3}", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+        return std::format("{:0>4}-{:0>2}-{:0>2} {:0>2}:{:0>2}:{:0>2}.{:0>3}",
+                           st.wYear,
+                           st.wMonth,
+                           st.wDay,
+                           st.wHour,
+                           st.wMinute,
+                           st.wSecond,
+                           st.wMilliseconds);
 #else
-    return "";
+        auto now = std::chrono::system_clock::now();
+
+        time_t t = std::chrono::system_clock::to_time_t(now);
+        tm *st = localtime(&t);
+
+        return std::format("{:0>4}-{:0>2}-{:0>2} {:0>2}:{:0>2}:{:0>2}.{:0>3}",
+                           st->tm_year + 1900,
+                           st->tm_mon + 1,
+                           st->tm_mday,
+                           st->tm_hour,
+                           st->tm_min,
+                           st->tm_sec,
+                           now.time_since_epoch().count() % 1000);
 #endif
     }
 
-    int wait_program(const int signed pid)
+    int wait_program(const int pid)
     {
 #ifdef WIN32
 

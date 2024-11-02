@@ -14,8 +14,6 @@
 
 #define LOG_FILE_NAME "./log.txt"
 
-typedef std::thread::id pid;
-
 struct Data
 {
     int counter = 0;
@@ -28,7 +26,7 @@ struct Data
 
 shlib::SharedMem<Data> GetSharedMem()
 {
-    return shlib::SharedMem<Data>("sheared_memory");
+    return shlib::SharedMem<Data>("shared_memory");
 }
 
 template <typename T>
@@ -50,12 +48,6 @@ bool is_working(shlib::SharedMem<Data> &shared_data)
 
 std::string get_time_str()
 {
-    // auto now_c = std::chrono::system_clock::now();
-    // std::time_t now = std::chrono::system_clock::to_time_t(now_c);
-
-    // std::string time_str(30, '\0');
-    // std::strftime(&time_str[0], time_str.size(), "%Y-%m-%d %H:%M:%S.000", std::localtime(&now));
-    // return time_str.c_str();
     return proclib::get_current_time_str();
 }
 
@@ -120,7 +112,7 @@ void copies_thread(const std::atomic_bool &is_thread_running, const char *progra
         {
             int status{};
             int agrc = 2;
-            char *argv[] = {(char*)program_name, (char*)"1", 0};
+            char *argv[] = {(char *)program_name, (char *)"1", 0};
             proclib::start_process(2, argv, status);
 
             argv[1] = (char *)"2";
@@ -143,7 +135,8 @@ void log_thread(const std::atomic_bool &is_thread_running)
     {
         shared_data.Lock();
         auto counter = shared_data.Data()->counter;
-        std::string time_pid = std::format("[{} | {}] {} {}", get_time_str(), get_pid_str(), counter, shared_data.Data()->count_programs);
+        std::string time_pid = std::format("[{} | {}] {}", get_time_str(), get_pid_str(), counter);
+        // std::string time_pid = std::format("[{} | {}] {} {}", get_time_str(), get_pid_str(), counter, shared_data.Data()->count_programs);
         shared_data.Unlock();
         write_file(shared_data, time_pid);
         std::this_thread::sleep_for(time_sleep);
@@ -179,10 +172,10 @@ std::string to_string(BEH behaviour)
     return "";
 }
 
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 
-    auto shared_data = shlib::SharedMem<Data>("sheared_memory");
+    auto shared_data = GetSharedMem();
     if (!shared_data.IsValid())
     {
         std::cout << "Failed to create shared memory block!" << std::endl;
