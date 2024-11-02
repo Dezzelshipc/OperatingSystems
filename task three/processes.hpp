@@ -78,7 +78,7 @@ namespace proclib
     {
 #ifdef WIN32
     SYSTEMTIME st;
-    GetSystemTime(&st);
+    GetLocalTime(&st);
 
     return std::format("{:0>4}-{:0>2}-{:0>2} {:0>2}:{:0>2}:{:0>2}.{:0>3}", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
 #else

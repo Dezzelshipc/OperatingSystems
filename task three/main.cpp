@@ -10,6 +10,7 @@
 #include <vector>
 #include <string>
 #include <format>
+// c++20
 
 #define LOG_FILE_NAME "./log.txt"
 
@@ -99,7 +100,7 @@ void counter_thread(const std::atomic_bool &is_thread_running)
     }
 }
 
-void copies_thread(const std::atomic_bool &is_thread_running)
+void copies_thread(const std::atomic_bool &is_thread_running, const char *program_name)
 {
     wait_other(is_thread_running);
 
@@ -107,7 +108,26 @@ void copies_thread(const std::atomic_bool &is_thread_running)
     auto this_pid = proclib::get_current_pid();
     auto time_sleep = std::chrono::seconds(3);
 
-    std::cout << "THREAD COPIES\n";
+    while (shared_data.IsValid() && is_thread_running)
+    {
+        shared_data.Lock();
+        if (shared_data.Data()->copy_num > 0)
+        {
+            std::string time_pid = std::format("[{} | {}] Failed starting copies: {} more copies exist.", get_time_str(), get_pid_str(), shared_data.Data()->count_programs);
+            write_file(shared_data, time_pid);
+        }
+        else
+        {
+            int status{};
+            std::string cmd_call = std::format("{} ", program_name);
+            char *cmd1 = (char *)(cmd_call + "1").c_str();
+            char *cmd2 = (char *)(cmd_call + "2").c_str();
+            proclib::start_process(cmd1, status);
+            proclib::start_process(cmd2, status);
+        }
+        shared_data.Unlock();
+        std::this_thread::sleep_for(time_sleep);
+    }
 }
 
 void log_thread(const std::atomic_bool &is_thread_running)
@@ -123,8 +143,8 @@ void log_thread(const std::atomic_bool &is_thread_running)
         shared_data.Lock();
         auto counter = shared_data.Data()->counter;
         std::string time_pid = std::format("[{} | {}] {} {}", get_time_str(), get_pid_str(), counter, shared_data.Data()->count_programs);
-        write_file(shared_data, time_pid);
         shared_data.Unlock();
+        write_file(shared_data, time_pid);
         std::this_thread::sleep_for(time_sleep);
     }
 
@@ -137,9 +157,29 @@ void log_thread(const std::atomic_bool &is_thread_running)
     shared_data.Unlock();
 }
 
-int main(int argc, char **argv)
+enum class BEH
 {
-    std::cout << std::format("Started {} : pid={}. Log file: {}\n", argv[0], get_pid_str(), LOG_FILE_NAME);
+    MAIN = 0,
+    COPY1 = 1,
+    COPY2 = 2
+};
+
+std::string to_string(BEH behaviour)
+{
+    switch (behaviour)
+    {
+    case BEH::MAIN:
+        return "main program";
+    case BEH::COPY1:
+        return "copy 1";
+    case BEH::COPY2:
+        return "copy 2";
+    }
+    return "";
+}
+
+main(int argc, char **argv)
+{
 
     auto shared_data = shlib::SharedMem<Data>("sheared_memory");
     if (!shared_data.IsValid())
@@ -148,67 +188,98 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    std::vector<std::thread> threads;
+    BEH behaviuor = BEH::MAIN;
+    if (argc > 1)
+    {
+        behaviuor = (BEH)std::atoi(argv[1]);
+    }
 
-    std::atomic_bool is_runnig = true;
     if (!is_working(shared_data))
     {
         std::ofstream log(LOG_FILE_NAME);
         log.clear();
     }
 
-    shared_data.Lock();
-    shared_data.Data()->count_programs++;
-    threads.emplace_back(counter_thread, std::ref(is_runnig));
-    threads.emplace_back(log_thread, std::ref(is_runnig));
-    threads.emplace_back(copies_thread, std::ref(is_runnig));
-
-    shared_data.Unlock();
-
-    std::string time_pid = std::format("[{} | {}] Started", get_time_str(), get_pid_str());
+    std::string time_pid = std::format("[{} | {}] Started {}", get_time_str(), get_pid_str(), to_string(behaviuor));
     write_file(shared_data, time_pid);
 
-    std::string param;
-    int set_counter = 0;
-    while (true)
+    if (behaviuor == BEH::MAIN)
     {
-        std::cin >> param;
-        if (param == "e" || param == "exit")
+        std::cout << std::format("Started {} : pid={}. Log file: {}\n", argv[0], get_pid_str(), LOG_FILE_NAME);
+
+        std::vector<std::thread> threads;
+
+        std::atomic_bool is_runnig = true;
+
+        shared_data.Lock();
+        shared_data.Data()->count_programs++;
+        threads.emplace_back(counter_thread, std::ref(is_runnig));
+        threads.emplace_back(log_thread, std::ref(is_runnig));
+        threads.emplace_back(copies_thread, std::ref(is_runnig), argv[0]);
+        shared_data.Unlock();
+
+        std::string param;
+        int set_counter = 0;
+        while (true)
         {
-            break;
+            std::cin >> param;
+            if (param == "e" || param == "exit")
+            {
+                break;
+            }
+            else if (param == "m" || param == "mpdify")
+            {
+                std::cout << "Enter int to set counter to\n";
+                std::cin >> set_counter;
+                shared_data.Lock();
+                shared_data.Data()->counter = set_counter;
+                shared_data.Unlock();
+            }
+            else if (param == "s" || param == "show")
+            {
+                shared_data.Lock();
+                auto counter = shared_data.Data()->counter;
+                shared_data.Unlock();
+                std::cout << "Counter value: " << counter << "\n";
+            }
         }
-        else if (param == "m" || param == "mpdify")
+        std::cout << "Exiting...\n";
+
+        shared_data.Lock();
+        shared_data.Data()->count_programs--;
+        shared_data.Unlock();
+
+        std::cout << "Joining threads\n";
+        is_runnig = false;
+
+        for (auto &t : threads)
         {
-            std::cout << "Enter int to set counter to\n";
-            std::cin >> set_counter;
-            shared_data.Lock();
-            shared_data.Data()->counter = set_counter;
-            shared_data.Unlock();
+            t.join();
         }
-        else if (param == "s" || param == "show")
-        {
-            shared_data.Lock();
-            auto counter = shared_data.Data()->counter;
-            shared_data.Unlock();
-            std::cout << "Counter value: " << counter << "\n";
-        }
+        std::cout << "Goodbye\n";
     }
-    std::cout << "Exiting...\n";
-
-    shared_data.Lock();
-    shared_data.Data()->count_programs--;
-    shared_data.Unlock();
-
-    std::cout << "Joining threads\n";
-    is_runnig = false;
-
-    for (auto &t : threads)
+    else if (behaviuor == BEH::COPY1)
     {
-        t.join();
+        shared_data.Lock();
+        shared_data.Data()->counter += 10;
+        shared_data.Unlock();
     }
-    std::cout << "Goodbye\n";
+    else if (behaviuor == BEH::COPY2)
+    {
+        shared_data.Lock();
+        shared_data.Data()->counter *= 2;
+        shared_data.Data()->copy_num++;
+        shared_data.Unlock();
 
-    time_pid = std::format("[{} | {}] Finished", get_time_str(), get_pid_str());
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+
+        shared_data.Lock();
+        shared_data.Data()->counter /= 2;
+        shared_data.Data()->copy_num--;
+        shared_data.Unlock();
+    }
+
+    time_pid = std::format("[{} | {}] Finished {}", get_time_str(), get_pid_str(), to_string(behaviuor));
     write_file(shared_data, time_pid);
 
     return 0;
