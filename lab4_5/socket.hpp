@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <vector>
 
 #if defined(WIN32)
 
@@ -21,324 +22,340 @@
 
 #define READ_WAIT_MS 50
 
-class SocketBase
+namespace sclib
 {
-public:
-    SocketBase() : m_socket(INVALID_SOCKET)
+    class Response
     {
+    public:
+        Response(const std::string &action, const std::string &url, std::string (*body_func)(void))
+            : m_action(action), m_url(url), m_body_func(body_func) {}
+
+        std::string GetBody()
+        {
+            if (m_body_func == NULL)
+            {
+                return "";
+            }
+            return m_body_func();
+        }
+
+        std::string GetAnswer()
+        {
+            auto body = GetBody();
+            std::stringstream ans;
+            ans << "HTTP/1.0 200 OK\r\n"
+                << "Version: HTTP/1.1\r\n"
+                << "Content-Type: text/html; charset=utf-8\r\n"
+                << "Content-Length: " << body.length()
+                << "\r\n\r\n"
+                << body;
+            return ans.str();
+        }
+
+        std::string GetAction()
+        {
+            return m_action;
+        }
+
+         std::string GetURL()
+        {
+            return m_url;
+        }
+
+    protected:
+        std::string m_action;
+        std::string m_url;
+        std::string (*m_body_func)(void);
+    };
+
+    class ErrorResponse : public Response
+    {
+    public:
+        static std::string GetBody()
+        {
+            return "<html>\n<head>"
+                   "\t<meta/>\n"
+                   "\t<title>Page Not Exists</title>\n"
+                   "</head>\n\t<body>\n"
+                   "\t\t<h1>Page Not Exists</h1>\n"
+                   "</b></p>\n"
+                   "\t</body>\n</html>";
+        }
+
+        static std::string GetAnswer()
+        {
+            auto body = GetBody();
+            std::stringstream ans;
+            ans << "HTTP/1.0 404 Not Found\r\n"
+                << "Version: HTTP/1.1\r\n"
+                << "Content-Type: text/html; charset=utf-8\r\n"
+                << "Content-Length: " << body.length()
+                << "\r\n\r\n"
+                << body;
+            return ans.str();
+        }
+    };
+
+    class Parsed
+    {
+        std::string m_action;
+        std::string m_url;
+    public:
+
+        Parsed(const std::string &recieved_data)
+        {
+            std::istringstream recv(recieved_data);
+            std::string line;
+            std::getline(recv, line);
+
+            std::vector<std::string> split;
+            std::istringstream iss(line);
+            std::string s;
+            while (getline(iss, s, ' '))
+            {
+                split.emplace_back(s);
+            }
+
+            m_action = split[0];
+            m_url = split[1];
+        }
+
+        bool CheckResponse(Response response)
+        {
+            return response.GetAction() == m_action && response.GetURL() == m_url;
+        }
+
+        std::string GetAction()
+        {
+            return m_action;
+        }
+
+         std::string GetURL()
+        {
+            return m_url;
+        }
+    };
+
+    class SocketBase
+    {
+    public:
+        SocketBase() : m_socket(INVALID_SOCKET)
+        {
 #ifdef WIN32
-        WSADATA wsaData;
-        WSAStartup(MAKEWORD(2, 2), &wsaData);
+            WSADATA wsaData;
+            WSAStartup(MAKEWORD(2, 2), &wsaData);
 #else
-        // Игнорируем SIGPIPE сигнал
-        // чтобы программа не терминировалась при попытке записи в закрытый сокет
-        signal(SIGPIPE, SIG_IGN);
+            // Игнорируем SIGPIPE сигнал
+            // чтобы программа не терминировалась при попытке записи в закрытый сокет
+            signal(SIGPIPE, SIG_IGN);
 #endif
-    }
-    ~SocketBase()
-    {
-        CloseSocket();
+        }
+        ~SocketBase()
+        {
+            CloseSocket();
 #if defined(WIN32)
-        WSACleanup();
+            WSACleanup();
 #endif
-    }
+        }
 
-    static int ErrorCode()
-    {
+        static int ErrorCode()
+        {
 #ifdef WIN32
-        return WSAGetLastError();
+            return WSAGetLastError();
 #else
-        return errno;
+            return errno;
 #endif
-    }
+        }
 
-    bool IsValid()
-    {
-        return m_socket != INVALID_SOCKET;
-    }
+        bool IsValid()
+        {
+            return m_socket != INVALID_SOCKET;
+        }
 
-protected:
-    void CloseSocket()
-    {
-        CloseSocket(m_socket);
-        m_socket = INVALID_SOCKET;
-    }
+    protected:
+        void CloseSocket()
+        {
+            CloseSocket(m_socket);
+            m_socket = INVALID_SOCKET;
+        }
 
-    static void CloseSocket(SOCKET sock)
-    {
-        if (sock == INVALID_SOCKET)
-            return;
+        static void CloseSocket(SOCKET sock)
+        {
+            if (sock == INVALID_SOCKET)
+                return;
 #if defined(WIN32)
-        shutdown(sock, SD_SEND);
-        closesocket(sock);
+            shutdown(sock, SD_SEND);
+            closesocket(sock);
 #else
-        shutdown(sock, SHUT_WR);
-        close(sock);
+            shutdown(sock, SHUT_WR);
+            close(sock);
 #endif
-    }
+        }
 
-    static int Poll(const SOCKET &socket, int timeout_ms = READ_WAIT_MS)
-    {
-        struct pollfd polstr;
-        memset(&polstr, 0, sizeof(polstr));
-        polstr.fd = socket;
-        polstr.events |= POLLIN;
+        static int Poll(const SOCKET &socket, int timeout_ms = READ_WAIT_MS)
+        {
+            struct pollfd polstr;
+            memset(&polstr, 0, sizeof(polstr));
+            polstr.fd = socket;
+            polstr.events |= POLLIN;
 #ifdef WIN32
-        return WSAPoll(&polstr, 1, timeout_ms);
+            return WSAPoll(&polstr, 1, timeout_ms);
 #else
-        return poll(&polstr, 1, timeout_ms);
+            return poll(&polstr, 1, timeout_ms);
 #endif
-    }
+        }
 
-    SOCKET m_socket;
-};
+        SOCKET m_socket;
+    };
 
-class HTTPServer : public SocketBase
-{
-public:
-    // Регистрируем сокет на прослушку подключения
-    // void Listen(const std::string &interface_ip, short int port)
-    // {
-    //     if (m_socket != INVALID_SOCKET)
-    //     {
-    //         CloseSocket();
-    //     }
-    //     // Создаем сокет ipv4
-    //     m_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    //     if (m_socket == INVALID_SOCKET)
-    //     {
-    //         std::cerr << "Cant open socket: " << ErrorCode() << std::endl;
-    //         // return INVALID_SOCKET;
-    //     }
-    //     // Биндим сокет на адрес и порт
-    //     sockaddr_in local_addr;
-    //     memset(&local_addr, 0, sizeof(local_addr));
-    //     local_addr.sin_family = AF_INET;
-    //     local_addr.sin_addr.s_addr = inet_addr(interface_ip.c_str());
-    //     local_addr.sin_port = htons(port);
-    //     if (bind(m_socket, (struct sockaddr *)&local_addr, sizeof(local_addr)))
-    //     {
-    //         std::cerr << "Failed to bind: " << ErrorCode() << std::endl;
-    //         CloseSocket();
-    //         // return INVALID_SOCKET;
-    //     }
-    //     // Запускаем прослушку на сокете
-    //     if (listen(m_socket, SOMAXCONN) == SOCKET_ERROR)
-    //     {
-    //         std::cerr << "Failed to start listen: " << ErrorCode() << std::endl;
-    //         CloseSocket();
-    //         // return INVALID_SOCKET;
-    //     }
-    //     // return m_socket;
-    // }
-
-    void Listen(const std::string &interface_ip, short int port)
+    class HTTPServer : public SocketBase
     {
-        if (m_socket != INVALID_SOCKET)
+    public:
+        void Listen(const std::string &interface_ip, short int port)
         {
-            CloseSocket();
-        }
+            if (m_socket != INVALID_SOCKET)
+            {
+                CloseSocket();
+            }
 
-        struct addrinfo hints;
-        memset(&hints, 0, sizeof(hints));
+            struct addrinfo hints;
+            memset(&hints, 0, sizeof(hints));
 
-        hints.ai_family = AF_INET;
-        hints.ai_socktype = SOCK_STREAM;
-        hints.ai_protocol = IPPROTO_TCP;
-        hints.ai_flags = AI_PASSIVE;
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_STREAM;
+            hints.ai_protocol = IPPROTO_TCP;
+            hints.ai_flags = AI_PASSIVE;
 
-        struct addrinfo *addr = NULL;
-        int res = getaddrinfo(interface_ip.c_str(), std::to_string(port).c_str(), &hints, &addr);
+            struct addrinfo *addr = NULL;
+            int res = getaddrinfo(interface_ip.c_str(), std::to_string(port).c_str(), &hints, &addr);
 
-        if (res != 0)
-        {
-            std::cerr << "Failed getaddrinfo: " << res << std::endl;
+            if (res != 0)
+            {
+                std::cerr << "Failed getaddrinfo: " << res << std::endl;
+                freeaddrinfo(addr);
+                return;
+            }
+
+            // Создаем сокет ipv4
+            m_socket = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+            if (m_socket == INVALID_SOCKET)
+            {
+                std::cerr << "Cant open socket: " << ErrorCode() << std::endl;
+                freeaddrinfo(addr);
+            }
+
+            // Биндим сокет на адрес и порт
+            if (bind(m_socket, addr->ai_addr, addr->ai_addrlen) == SOCKET_ERROR)
+            {
+                std::cerr << "Failed to bind: " << ErrorCode() << std::endl;
+                freeaddrinfo(addr);
+                CloseSocket();
+            }
             freeaddrinfo(addr);
-            return;
+
+            // Запускаем прослушку на сокете
+            if (listen(m_socket, SOMAXCONN) == SOCKET_ERROR)
+            {
+                std::cerr << "Failed to start listen: " << ErrorCode() << std::endl;
+                CloseSocket();
+            }
+            std::cout << "Listening to: http://" << interface_ip << ":" << port << std::endl;
         }
 
-        // Создаем сокет ipv4
-        m_socket = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-        if (m_socket == INVALID_SOCKET)
+        void ProcessClient(const std::string data_str)
         {
-            std::cerr << "Cant open socket: " << ErrorCode() << std::endl;
-            freeaddrinfo(addr);
-        }
+            if (!IsValid())
+            {
+                std::cerr << "Server (listening) socket is invalid!" << std::endl;
+                return;
+            }
 
-        // Биндим сокет на адрес и порт
-        if (bind(m_socket, addr->ai_addr, addr->ai_addrlen) == SOCKET_ERROR)
-        {
-            std::cerr << "Failed to bind: " << ErrorCode() << std::endl;
-            freeaddrinfo(addr);
-            CloseSocket();
-        }
-        freeaddrinfo(addr);
+            SOCKET client_socket = accept(m_socket, NULL, NULL);
+            if (client_socket == INVALID_SOCKET)
+            {
+                std::cerr << "Error accepting client: " << ErrorCode() << std::endl;
+                CloseSocket(client_socket);
+                return;
+            }
 
-        // Запускаем прослушку на сокете
-        if (listen(m_socket, SOMAXCONN) == SOCKET_ERROR)
-        {
-            std::cerr << "Failed to start listen: " << ErrorCode() << std::endl;
-            CloseSocket();
-        }
-        std::cout << "Listening to: http://" << interface_ip << ":" << port << std::endl;
-    }
+            if (Poll(client_socket) <= 0)
+            {
+                CloseSocket(client_socket);
+                return;
+            }
 
-    // void ProcessClient(const std::string data_str)
-    // {
-    //     if (!IsValid())
-    //     {
-    //         std::cerr << "Server (listening) socket is invalid!" << std::endl;
-    //         return;
-    //     }
+            std::stringstream recv_str;
 
-    //     SOCKET client_socket = accept(m_socket, NULL, NULL);
-    //     if (client_socket == INVALID_SOCKET)
-    //     {
-    //         std::cerr << "Error accepting client: " << ErrorCode() << std::endl;
-    //         CloseSocket(client_socket);
-    //         return;
-    //     }
+            int buf_size = sizeof(m_input_buf) - 1;
+            m_input_buf[buf_size] = '\0';
 
-    //     // Хочет ли клиент с нами говорить?
-    //     // (современные браузеры могу открыть два подключения сразу)
-    //     // Не хочет - закрываем сокет
-    //     if (Poll(client_socket) <= 0)
-    //     {
-    //         CloseSocket(client_socket);
-    //         return;
-    //     }
+            // Читаем поток данных
+            int result = -1;
+            do
+            {
+                result = recv(client_socket, m_input_buf, buf_size, 0);
+                recv_str << m_input_buf;
+            } while (result >= buf_size);
 
-    //     // Прочитаем, что клиент нам сказал (блокирующий вызов!!)
-    //     int result = recv(client_socket, m_input_buf, sizeof(m_input_buf), 0);
-    //     if (result == SOCKET_ERROR)
-    //     {
-    //         std::cerr << "Error on client receive: " << result << std::endl;
-    //         CloseSocket(client_socket);
-    //         return;
-    //     }
-    //     else if (result == 0)
-    //     {
-    //         std::cerr << "Client closed connection before getting any data!" << std::endl;
-    //         CloseSocket(client_socket);
-    //         return;
-    //     }
-    //     m_input_buf[result] = '\0';
+            if (result == SOCKET_ERROR || result < 0)
+            {
+                std::cerr << "Error on client receive: " << ErrorCode() << std::endl;
+                CloseSocket(client_socket);
+                return;
+            }
+            else if (result == 0)
+            {
+                std::cerr << "Client closed connection before getting any data!" << std::endl;
+                CloseSocket(client_socket);
+                return;
+            }
 
-    //     // Сюда запишем полный ответ клиенту
-    //     std::stringstream response;
-    //     // Сюда запишем HTML-страницу с ответом
-    //     std::stringstream response_body; // тело ответа
-    //     // TODO: хороший сервер должен анализировать заголовки запроса (m_input_buf)
-    //     // и на их основе создавать ответ. Но это - плохой сервер )
-    //     response_body << "<html>\n<head>"
-    //                   << "\t<meta http-equiv=\"Refresh\" content=\"1\" />\n"
-    //                   << "\t<title>Temperature Device Server</title>\n"
-    //                   << "</head>\n\t<body>\n"
-    //                   << "\t\t<h1>Temperature Device Server</h1>\n"
-    //                   << "\t\t<p>Current device data: <b>"
-    //                   << (data_str.size() ? data_str : "No data provided!")
-    //                   << "</b></p>\n"
-    //                   << "<pre>" << m_input_buf << "</pre>"
-    //                   << "\t</body>\n</html>";
-    //     // Формируем весь ответ вместе с заголовками
-    //     response << "HTTP/1.0 200 OK\r\n"
-    //              << "Version: HTTP/1.1\r\n"
-    //              << "Content-Type: text/html; charset=utf-8\r\n"
-    //              << "Content-Length: " << response_body.str().length()
-    //              << "\r\n\r\n"
-    //              << response_body.str();
-    //     // Отправляем ответ клиенту
-    //     result = send(client_socket, response.str().c_str(), (int)response.str().length(), 0);
-    //     if (result == SOCKET_ERROR)
-    //     {
-    //         // произошла ошибка при отправке данных
-    //         std::cerr << "Failed to send responce to client: " << ErrorCode() << std::endl;
-    //     }
-    //     // Закрываем соединение к клиентом
-    //     CloseSocket(client_socket);
-    //     std::cout << "Answered to client!" << std::endl;
-    // }
+            auto parsed = Parsed(recv_str.str());
 
-    void ProcessClient(const std::string data_str)
-    {
-        if (!IsValid())
-        {
-            std::cerr << "Server (listening) socket is invalid!" << std::endl;
-            return;
-        }
+            std::cout << parsed.GetAction() << " " << parsed.GetURL() << std::endl;
+            
+            int index_r = -1; 
+            for (int i = 0; i < m_responses.size(); ++i)
+            {
+                if (parsed.CheckResponse(m_responses[i]))
+                {
+                    index_r = i;
+                    break;
+                }
+            }
+            
+            std::string response;
+            if (index_r != -1)
+            {
+                response = m_responses[index_r].GetAnswer();
+            }
+            else 
+            {
+                response = ErrorResponse::GetAnswer();
+            }
 
-        SOCKET client_socket = accept(m_socket, NULL, NULL);
-        if (client_socket == INVALID_SOCKET)
-        {
-            std::cerr << "Error accepting client: " << ErrorCode() << std::endl;
+
+            // Отправляем ответ клиенту
+            result = send(client_socket, response.c_str(), (int)response.length(), 0);
+            if (result == SOCKET_ERROR)
+            {
+                // произошла ошибка при отправке данных
+                std::cerr << "Failed to send responce to client: " << ErrorCode() << std::endl;
+            }
+            // Закрываем соединение к клиентом
             CloseSocket(client_socket);
-            return;
+            std::cout << "Answered to client!" << std::endl;
         }
 
-        if (Poll(client_socket) <= 0)
+        void RegisterResponses(std::vector<Response> responses)
         {
-            CloseSocket(client_socket);
-            return;
+            m_responses = responses;
         }
 
-        // Прочитаем, что клиент нам сказал (блокирующий вызов!!)
-        int result = recv(client_socket, m_input_buf, sizeof(m_input_buf), 0);
-        if (result == SOCKET_ERROR || result < 0)
-        {
-            std::cerr << "Error on client receive: " << ErrorCode() << std::endl;
-            CloseSocket(client_socket);
-            return;
-        }
-        else if (result == 0)
-        {
-            std::cerr << "Client closed connection before getting any data!" << std::endl;
-            CloseSocket(client_socket);
-            return;
-        }
-        m_input_buf[result] = '\0';
+    private:
+        char m_input_buf[1024];
 
-        // Сюда запишем полный ответ клиенту
-        std::stringstream response;
-        // Сюда запишем HTML-страницу с ответом
-        std::stringstream response_body; // тело ответа
+        std::vector<Response> m_responses;
+    };
 
-        response_body << "<html>\n<head>"
-                      << "\t<meta content=\"1\" />\n"
-                      << "\t<title>Temperature Device Server</title>\n"
-                      << "</head>\n\t<body>\n"
-                      << "\t\t<h1>Temperature Device Server</h1>\n"
-                      << "\t\t<p>Current device data: <b>"
-                      << (data_str.size() ? data_str : "No data provided!")
-                      << "</b></p>\n"
-                      << "<pre>" << m_input_buf << "</pre>"
-                      << "\t</body>\n</html>";
-
-        // response_body << "<title>Test C++ HTTP Server</title>\n"
-        //         << "<h1>Test page</h1>\n"
-        //         << "<p>This is body of the test page...</p>\n"
-        //         << "<h2>Request headers</h2>\n"
-        //         << "<pre>" << m_input_buf << "</pre>\n"
-        //         << "<em><small>Test C++ Http Server</small></em>\n";
-
-        // Формируем весь ответ вместе с заголовками
-        response << "HTTP/1.0 200 OK\r\n"
-                 << "Version: HTTP/1.1\r\n"
-                 << "Content-Type: text/html; charset=utf-8\r\n"
-                 << "Content-Length: " << response_body.str().length()
-                 << "\r\n\r\n"
-                 << response_body.str();
-        // Отправляем ответ клиенту
-        result = send(client_socket, response.str().c_str(), (int)response.str().length(), 0);
-        if (result == SOCKET_ERROR)
-        {
-            // произошла ошибка при отправке данных
-            std::cerr << "Failed to send responce to client: " << ErrorCode() << std::endl;
-        }
-        // Закрываем соединение к клиентом
-        CloseSocket(client_socket);
-        std::cout << "Answered to client!" << std::endl;
-    }
-
-private:
-    char m_input_buf[1024];
-};
+}
