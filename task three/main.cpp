@@ -221,7 +221,7 @@ int main(int argc, char **argv)
             {
                 break;
             }
-            else if (param == "m" || param == "mpdify")
+            else if (param == "m" || param == "modify")
             {
                 std::cout << "Enter int to set counter to\n";
                 std::cin >> set_counter;
