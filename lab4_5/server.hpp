@@ -2,6 +2,8 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <filesystem>
+#include <fstream>
 
 #if defined(WIN32)
 
@@ -22,13 +24,15 @@
 
 #define READ_WAIT_MS 50
 
-namespace sclib
+namespace fs = std::filesystem;
+
+namespace srvlib
 {
     class Response
     {
     public:
-        Response(const std::string &action, const std::string &url, std::string (*body_func)(void))
-            : m_action(action), m_url(url), m_body_func(body_func) {}
+        Response(const std::string &action, const std::string &url, std::string (*body_func)(void), bool is_raw = false)
+            : m_action(action), m_url(url), m_body_func(body_func), m_is_raw(is_raw) {}
 
         std::string GetBody()
         {
@@ -39,9 +43,8 @@ namespace sclib
             return m_body_func();
         }
 
-        std::string GetAnswer()
+        static std::string GetAnswer(std::string body)
         {
-            auto body = GetBody();
             std::stringstream ans;
             ans << "HTTP/1.0 200 OK\r\n"
                 << "Version: HTTP/1.1\r\n"
@@ -52,20 +55,76 @@ namespace sclib
             return ans.str();
         }
 
+        std::string GetAnswer()
+        {
+            return GetAnswer(GetBody());
+        }
+
         std::string GetAction()
         {
             return m_action;
         }
 
-         std::string GetURL()
+        std::string GetURL()
         {
             return m_url;
+        }
+
+        bool IsRaw()
+        {
+            return m_is_raw;
+        }
+
+        // Searches files near .exe file and sends str_path if it finds or "" if not
+        static std::string CheckAssets(const std::string file_path)
+        {
+            std::string path = file_path;
+
+            if (path.find(".") == std::string::npos)
+            {
+                if (!path.ends_with("/"))
+                {
+                    path += "/";
+                }
+                path += "index.html";
+            }
+
+            std::vector<std::string> try_paths;
+            if (path.ends_with(".html"))
+            {
+                try_paths.emplace_back("../html");
+                try_paths.emplace_back("./html");
+            }
+            else
+            {
+                try_paths.emplace_back("../assets");
+                try_paths.emplace_back("./assets");
+            }
+
+            for (auto &p : try_paths)
+            {
+                auto pp = p + path;
+                if (fs::exists(pp))
+                {
+                    return pp;
+                }
+            }
+            return "";
+        }
+
+        static std::string ReadFile(const std::string &file_path)
+        {
+            std::ifstream file(file_path);
+            std::stringstream str;
+            str << file.rdbuf() << "\n";
+            return str.str();
         }
 
     protected:
         std::string m_action;
         std::string m_url;
         std::string (*m_body_func)(void);
+        bool m_is_raw = false;
     };
 
     class ErrorResponse : public Response
@@ -100,8 +159,8 @@ namespace sclib
     {
         std::string m_action;
         std::string m_url;
-    public:
 
+    public:
         Parsed(const std::string &recieved_data)
         {
             std::istringstream recv(recieved_data);
@@ -130,7 +189,7 @@ namespace sclib
             return m_action;
         }
 
-         std::string GetURL()
+        std::string GetURL()
         {
             return m_url;
         }
@@ -262,7 +321,7 @@ namespace sclib
             std::cout << "Listening to: http://" << interface_ip << ":" << port << std::endl;
         }
 
-        void ProcessClient(const std::string data_str)
+        void ProcessClient()
         {
             if (!IsValid())
             {
@@ -287,13 +346,13 @@ namespace sclib
             std::stringstream recv_str;
 
             int buf_size = sizeof(m_input_buf) - 1;
-            m_input_buf[buf_size] = '\0';
 
             // Читаем поток данных
             int result = -1;
             do
             {
                 result = recv(client_socket, m_input_buf, buf_size, 0);
+                m_input_buf[result] = '\0';
                 recv_str << m_input_buf;
             } while (result >= buf_size);
 
@@ -313,8 +372,8 @@ namespace sclib
             auto parsed = Parsed(recv_str.str());
 
             std::cout << parsed.GetAction() << " " << parsed.GetURL() << std::endl;
-            
-            int index_r = -1; 
+
+            int index_r = -1;
             for (int i = 0; i < m_responses.size(); ++i)
             {
                 if (parsed.CheckResponse(m_responses[i]))
@@ -323,17 +382,34 @@ namespace sclib
                     break;
                 }
             }
-            
+
             std::string response;
             if (index_r != -1)
             {
-                response = m_responses[index_r].GetAnswer();
+                if (m_responses[index_r].IsRaw())
+                {
+                    response = m_responses[index_r].GetBody();
+                }
+                else
+                {
+                    response = m_responses[index_r].GetAnswer();
+                }
             }
-            else 
+            else
             {
-                response = ErrorResponse::GetAnswer();
+                std::string path = Response::CheckAssets(parsed.GetURL());
+                if (!path.empty())
+                {
+                    response = Response::GetAnswer(Response::ReadFile(path));
+                }
+                else
+                {
+                    response = ErrorResponse::GetAnswer();
+                }
             }
 
+            // response += "<br><pre>" + recv_str.str() + "</pre>";
+            std::cout << recv_str.str();
 
             // Отправляем ответ клиенту
             result = send(client_socket, response.c_str(), (int)response.length(), 0);

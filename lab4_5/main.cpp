@@ -1,5 +1,7 @@
+#include "server.hpp"
 #include "serial.hpp"
 #include "processes.hpp"
+
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -7,6 +9,7 @@
 #include <filesystem>
 #include <chrono>
 #include <vector>
+#include <thread>
 
 namespace fs = std::filesystem;
 
@@ -221,8 +224,12 @@ ParsedData ParseTemperature(const std::string str)
     }
 }
 
+void ServerThread();
+
 int main(int argc, char **argv)
 {
+    std::thread server_thread(ServerThread);
+
     std::string port(DEFAULT_PORT);
     if (argc > 1)
     {
@@ -279,5 +286,45 @@ int main(int argc, char **argv)
             WriteTempToFile(LOG_DAY_NAME, day_mean, now_time, YEAR_SEC);
             tracking_data.last_day_gather = now_time;
         }
+    }
+}
+
+using srvlib::Response;
+
+std::string LogSec()
+{
+    return Response::ReadFile(LOG_SEC_NAME);
+}
+
+std::string LogHour()
+{
+    return Response::ReadFile(LOG_HOUR_NAME);
+}
+std::string LogDay()
+{
+    return Response::ReadFile(LOG_DAY_NAME);
+}
+
+void ServerThread()
+{
+    using namespace srvlib;
+    HTTPServer server;
+
+    server.Listen("0.0.0.0", 80);
+    std::vector<Response> resps;
+
+    resps.emplace_back("GET", "/sec/raw", LogSec, true);
+    resps.emplace_back("GET", "/hour/raw", LogHour, true);
+    resps.emplace_back("GET", "/day/raw", LogDay, true);
+
+    server.RegisterResponses(resps);
+    while (true)
+    {
+        if (!server.IsValid())
+        {
+            std::cerr << "Server error" << std::endl;
+            break;
+        }
+        server.ProcessClient();
     }
 }
