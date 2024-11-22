@@ -1,3 +1,5 @@
+#pragma once
+
 #if defined (WIN32)
 #	include <Windows.h>        // HANDLE и все функции read/write
 #	define MY_PORT_HANDLE      HANDLE

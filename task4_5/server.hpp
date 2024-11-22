@@ -1,9 +1,14 @@
+#pragma once
+
 #include <iostream>
 #include <string>
 #include <sstream>
 #include <vector>
 #include <filesystem>
 #include <fstream>
+#include <unordered_map>
+
+#include "utility.hpp"
 
 #if defined(WIN32)
 
@@ -22,17 +27,227 @@
 
 #endif
 
-#define READ_WAIT_MS 50
-
-namespace fs = std::filesystem;
-
 namespace srvlib
 {
+#define READ_WAIT_MS 50
+#define DEFAULT_HTTP_VERSION "HTTP/1.1"
+    namespace fs = std::filesystem;
+
+    std::string MimeTypeFromString(const std::string &str)
+    {
+        auto dot_i = str.find_last_of('.');
+
+        std::string szExtension = str.substr(dot_i, str.size() - dot_i);
+        std::string szResult = "application/unknown";
+#ifdef WIN32
+        HKEY hKey = NULL;
+
+        // open registry key
+        if (RegOpenKeyEx(HKEY_CLASSES_ROOT, szExtension.c_str(),
+                         0, KEY_READ, &hKey) == ERROR_SUCCESS)
+        {
+            // define buffer
+            char szBuffer[256] = {0};
+            DWORD dwBuffSize = sizeof(szBuffer);
+
+            // get content type
+            if (RegQueryValueEx(hKey, "Content Type", NULL, NULL,
+                                (LPBYTE)szBuffer, &dwBuffSize) == ERROR_SUCCESS)
+            {
+                // success
+                szResult = szBuffer;
+            }
+
+            // close key
+            RegCloseKey(hKey);
+        }
+#else
+
+#endif
+
+        return szResult;
+    }
+
+    // Searches files near .exe file and sends str_path if it finds or "" if not
+    std::string FindAssets(const std::string file_path)
+    {
+        std::string path = file_path;
+
+        if (path.find(".") == std::string::npos)
+        {
+            if (!path.ends_with("/"))
+            {
+                path += "/";
+            }
+            path += "index.html";
+        }
+
+        std::vector<std::string> try_paths;
+        if (path.ends_with(".html"))
+        {
+            try_paths.emplace_back("../html");
+            try_paths.emplace_back("./html");
+        }
+        else
+        {
+            try_paths.emplace_back("../assets");
+            try_paths.emplace_back("./assets");
+            try_paths.emplace_back("..");
+            try_paths.emplace_back(".");
+        }
+
+        for (auto &p : try_paths)
+        {
+            auto pp = p + path;
+            if (fs::exists(pp))
+            {
+                return pp;
+            }
+        }
+        return "";
+    }
+
+    class SpecialResponse;
+
+    class Request
+    {
+        std::string m_method;
+        std::string m_url;
+        std::string m_file_of_url;
+
+        std::string m_version;
+        std::unordered_map<std::string, std::string> m_headers;
+        std::unordered_map<std::string, std::string> m_url_args;
+
+    public:
+        Request(const std::string &recieved_data)
+        {
+            std::istringstream recv(recieved_data);
+            std::string line;
+            std::getline(recv, line);
+
+            auto split = utillib::Split(utillib::Trim(line), " ");
+            auto url_split = utillib::Split(split[1], "?");
+
+            m_method = split[0];
+            m_url = url_split[0];
+            if (url_split.size() > 1)
+            {
+                for (auto args : utillib::Split(url_split[1], "&"))
+                {
+                    auto sp = utillib::Split(args, "=");
+                    m_url_args[sp[0]] = sp[1];
+                }
+            }
+            m_version = split[2];
+
+            m_file_of_url = FindAssets(m_url);
+
+            while (true)
+            {
+                if (!std::getline(recv, line) || line == "\r" || line == "\r\n")
+                {
+                    break;
+                }
+                split = utillib::Split(utillib::Trim(line), ": ");
+                m_headers[split[0]] = split[1];
+            }
+        }
+
+        bool CheckResponse(SpecialResponse response) const;
+
+        std::string GetMethod() const
+        {
+            return m_method;
+        }
+
+        std::string GetURL() const
+        {
+            return m_url;
+        }
+
+        std::string GetFileURL() const
+        {
+            return m_file_of_url;
+        }
+
+        std::string GetVersion() const
+        {
+            return m_version;
+        }
+
+        std::string GetHeader(const std::string &key) const
+        {
+            return m_headers.at(key);
+        }
+    };
+
     class Response
     {
+
+    protected:
+        std::string m_response_type;
+        std::string m_content_type;
+        std::string m_version;
+
     public:
-        Response(const std::string &action, const std::string &url, std::string (*body_func)(void), bool is_raw = false)
-            : m_action(action), m_url(url), m_body_func(body_func), m_is_raw(is_raw) {}
+        Response(const std::string &response_type, const std::string &content_type, const std::string &version)
+            : m_response_type(response_type), m_content_type(content_type), m_version(version) {}
+
+        Response(const std::string &response_type, const std::string &content_type)
+            : Response(response_type, content_type, DEFAULT_HTTP_VERSION) {}
+
+        Response(const std::string &response_type) : Response(response_type, "text/html") {}
+
+        Response() : Response("200 OK") {}
+
+        Response(const Request &request) : Response()
+        {
+            m_version = request.GetVersion();
+            SetContentType(MimeTypeFromString(request.GetFileURL()));
+        }
+
+        Response SetVersion(const std::string &version)
+        {
+            m_version = version;
+            return *this;
+        }
+
+        Response SetResponseType(const std::string &response_type)
+        {
+            m_response_type = response_type;
+            return *this;
+        }
+
+        Response SetContentType(const std::string &content_type)
+        {
+            m_content_type = content_type;
+            return *this;
+        }
+
+        std::string GetAnswer(const std::string &body) const
+        {
+            std::stringstream ans;
+            ans << m_version << " " << m_response_type << "\r\n"
+                << "Content-Type: " << m_content_type << "; charset=utf-8\r\n" //
+                << "Content-Length: " << body.length()
+                << "\r\n\r\n"
+                << body;
+            return ans.str();
+        }
+    };
+
+    class SpecialResponse : public Response
+    {
+    protected:
+        std::string m_method;
+        std::string m_url;
+        std::string (*m_body_func)(void);
+        bool m_is_raw = false;
+
+    public:
+        SpecialResponse(const std::string &method, const std::string &url, std::string (*body_func)(void), bool is_raw = false)
+            : m_method(method), m_url(url), m_body_func(body_func), m_is_raw(is_raw), Response() {}
 
         std::string GetBody()
         {
@@ -43,26 +258,14 @@ namespace srvlib
             return m_body_func();
         }
 
-        static std::string GetAnswer(std::string body)
-        {
-            std::stringstream ans;
-            ans << "HTTP/1.0 200 OK\r\n"
-                << "Version: HTTP/1.1\r\n"
-                << "Content-Type: text/html; charset=utf-8\r\n"
-                << "Content-Length: " << body.length()
-                << "\r\n\r\n"
-                << body;
-            return ans.str();
-        }
-
         std::string GetAnswer()
         {
-            return GetAnswer(GetBody());
+            return Response::GetAnswer(GetBody());
         }
 
-        std::string GetAction()
+        std::string GetMethod()
         {
-            return m_action;
+            return m_method;
         }
 
         std::string GetURL()
@@ -74,124 +277,27 @@ namespace srvlib
         {
             return m_is_raw;
         }
-
-        // Searches files near .exe file and sends str_path if it finds or "" if not
-        static std::string CheckAssets(const std::string file_path)
-        {
-            std::string path = file_path;
-
-            if (path.find(".") == std::string::npos)
-            {
-                if (!path.ends_with("/"))
-                {
-                    path += "/";
-                }
-                path += "index.html";
-            }
-
-            std::vector<std::string> try_paths;
-            if (path.ends_with(".html"))
-            {
-                try_paths.emplace_back("../html");
-                try_paths.emplace_back("./html");
-            }
-            else
-            {
-                try_paths.emplace_back("../assets");
-                try_paths.emplace_back("./assets");
-            }
-
-            for (auto &p : try_paths)
-            {
-                auto pp = p + path;
-                if (fs::exists(pp))
-                {
-                    return pp;
-                }
-            }
-            return "";
-        }
-
-        static std::string ReadFile(const std::string &file_path)
-        {
-            std::ifstream file(file_path);
-            std::stringstream str;
-            str << file.rdbuf() << "\n";
-            return str.str();
-        }
-
-    protected:
-        std::string m_action;
-        std::string m_url;
-        std::string (*m_body_func)(void);
-        bool m_is_raw = false;
     };
+
+    bool Request::CheckResponse(SpecialResponse response) const
+    {
+        return response.GetMethod() == GetMethod() && response.GetURL() == GetURL();
+    }
 
     class ErrorResponse : public Response
     {
-    public:
-        static std::string GetBody()
-        {
-            return "<html>\n<head>"
-                   "\t<meta/>\n"
-                   "\t<title>Page Not Exists</title>\n"
-                   "</head>\n\t<body>\n"
-                   "\t\t<h1>Page Not Exists</h1>\n"
-                   "</b></p>\n"
-                   "\t</body>\n</html>";
-        }
-
-        static std::string GetAnswer()
-        {
-            auto body = GetBody();
-            std::stringstream ans;
-            ans << "HTTP/1.0 404 Not Found\r\n"
-                << "Version: HTTP/1.1\r\n"
-                << "Content-Type: text/html; charset=utf-8\r\n"
-                << "Content-Length: " << body.length()
-                << "\r\n\r\n"
-                << body;
-            return ans.str();
-        }
-    };
-
-    class Parsed
-    {
-        std::string m_action;
-        std::string m_url;
 
     public:
-        Parsed(const std::string &recieved_data)
-        {
-            std::istringstream recv(recieved_data);
-            std::string line;
-            std::getline(recv, line);
+        ErrorResponse() : Response("404 Not Found") {}
 
-            std::vector<std::string> split;
-            std::istringstream iss(line);
-            std::string s;
-            while (getline(iss, s, ' '))
+        std::string GetAnswer() const
+        {
+            auto error_page_path = FindAssets("/404.html");
+            if (error_page_path != "")
             {
-                split.emplace_back(s);
+                return Response::GetAnswer(utillib::ReadFile(error_page_path));
             }
-
-            m_action = split[0];
-            m_url = split[1];
-        }
-
-        bool CheckResponse(Response response)
-        {
-            return response.GetAction() == m_action && response.GetURL() == m_url;
-        }
-
-        std::string GetAction()
-        {
-            return m_action;
-        }
-
-        std::string GetURL()
-        {
-            return m_url;
+            return "";
         }
     };
 
@@ -369,14 +475,15 @@ namespace srvlib
                 return;
             }
 
-            auto parsed = Parsed(recv_str.str());
+            auto request = Request(recv_str.str());
 
-            std::cout << parsed.GetAction() << " " << parsed.GetURL() << std::endl;
+            std::cout << request.GetMethod() << " " << request.GetURL() << " " << request.GetFileURL() << std::endl;
 
+            // Try find special response
             int index_r = -1;
-            for (int i = 0; i < m_responses.size(); ++i)
+            for (int i = 0; i < m_sp_responses.size(); ++i)
             {
-                if (parsed.CheckResponse(m_responses[i]))
+                if (request.CheckResponse(m_sp_responses[i]))
                 {
                     index_r = i;
                     break;
@@ -384,31 +491,36 @@ namespace srvlib
             }
 
             std::string response;
+            // If found then show
             if (index_r != -1)
             {
-                if (m_responses[index_r].IsRaw())
+                if (m_sp_responses[index_r].IsRaw())
                 {
-                    response = m_responses[index_r].GetBody();
+                    response = m_sp_responses[index_r].GetBody();
                 }
                 else
                 {
-                    response = m_responses[index_r].GetAnswer();
+                    response = m_sp_responses[index_r].GetAnswer();
                 }
             }
             else
             {
-                std::string path = Response::CheckAssets(parsed.GetURL());
+                // If not found, try find file in near folders
+                std::string path = request.GetFileURL();
                 if (!path.empty())
                 {
-                    response = Response::GetAnswer(Response::ReadFile(path));
+                    // std::cout << MimeTypeFromString(path) << '\n';
+                    response = Response(request).GetAnswer(utillib::ReadFile(path));
                 }
                 else
                 {
-                    response = ErrorResponse::GetAnswer();
+                    // If not found, then 404
+                    response = error_response.GetAnswer();
                 }
             }
 
-            // response += "<br><pre>" + recv_str.str() + "</pre>";
+            // std::cout << response;
+            // response += "<!--" + recv_str.str() + "-->";
             std::cout << recv_str.str();
 
             // Отправляем ответ клиенту
@@ -423,15 +535,16 @@ namespace srvlib
             std::cout << "Answered to client!" << std::endl;
         }
 
-        void RegisterResponses(std::vector<Response> responses)
+        void RegisterResponses(std::vector<SpecialResponse> responses)
         {
-            m_responses = responses;
+            m_sp_responses = responses;
         }
 
     private:
         char m_input_buf[1024];
 
-        std::vector<Response> m_responses;
+        std::vector<SpecialResponse> m_sp_responses;
+        ErrorResponse error_response;
     };
 
 }

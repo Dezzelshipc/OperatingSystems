@@ -1,6 +1,6 @@
 #include "server.hpp"
 #include "serial.hpp"
-#include "processes.hpp"
+#include "utility.hpp"
 
 #include <string>
 #include <iostream>
@@ -21,7 +21,7 @@ struct ParsedData
 
 std::string DEFAULT_PORT = "COM4";
 
-std::string LOG_DIR = LOG_DIR + "logs";
+std::string LOG_DIR = "logs";
 std::string LOG_SEC_NAME = LOG_DIR + "/second.log";
 std::string LOG_HOUR_NAME = LOG_DIR + "/hour.log";
 std::string LOG_DAY_NAME = LOG_DIR + "/day.log";
@@ -254,17 +254,16 @@ int main(int argc, char **argv)
     SetTracking(LOG_DAY_NAME, tracking_data.last_day_gather);   // mean every day
 
     std::string input;
-    serial_port.SetTimeout(5.0);
+    serial_port.SetTimeout(1.0);
 
     // format: $$temp$$
     while (true)
     {
         serial_port >> input;
         auto parsed = ParseTemperature(input);
-        auto cur_time = proclib::get_current_time_str();
         if (parsed.is_error)
         {
-            std::cerr << "Parsing error " << cur_time << " -- Recieved: " << input << std::endl;
+            std::cerr << "Parsing error " << utillib::GetTime() << " -- Recieved: '" << input << "'" << std::endl;
             continue;
         }
         auto now_time = GetUNIXTimeNow();
@@ -289,33 +288,23 @@ int main(int argc, char **argv)
     }
 }
 
-using srvlib::Response;
-
-std::string LogSec()
-{
-    return Response::ReadFile(LOG_SEC_NAME);
-}
-
-std::string LogHour()
-{
-    return Response::ReadFile(LOG_HOUR_NAME);
-}
-std::string LogDay()
-{
-    return Response::ReadFile(LOG_DAY_NAME);
-}
-
 void ServerThread()
 {
-    using namespace srvlib;
-    HTTPServer server;
+    srvlib::HTTPServer server;
 
     server.Listen("0.0.0.0", 80);
-    std::vector<Response> resps;
+    std::vector<srvlib::SpecialResponse> resps;
 
-    resps.emplace_back("GET", "/sec/raw", LogSec, true);
-    resps.emplace_back("GET", "/hour/raw", LogHour, true);
-    resps.emplace_back("GET", "/day/raw", LogDay, true);
+    auto log_sec = [&]()
+    { return utillib::ReadFile(LOG_SEC_NAME); };
+    auto log_hour = [&]()
+    { return utillib::ReadFile(LOG_HOUR_NAME); };
+    auto log_day = [&]()
+    { return utillib::ReadFile(LOG_DAY_NAME); };
+
+    resps.emplace_back("GET", "/sec/raw", log_sec, true);
+    resps.emplace_back("GET", "/hour/raw", log_hour, true);
+    resps.emplace_back("GET", "/day/raw", log_day, true);
 
     server.RegisterResponses(resps);
     while (true)
