@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Temperature</title>
+    </head>
+    <body>
+        <h1></h1>
+        <div><a href="/">To main page</a></div>
+        <br>
+        <table>
+            <tbody class="tab">
+            </tbody>
+        </table>
+    </body>
+    <script>
+
+var url_string = window.location.href;
+var url = new URL(url_string);
+var log_type = url.searchParams.get("log"); // ?log=sec
+
+if (!["sec", "hour", "day"].includes(log_type))
+{
+    // console.log(url.hostname+"/404.http");
+    window.location.replace(url.hostname+"/404.http");
+}
+
+fetch(`/${log_type}/raw`)
+.then(response => {
+    if (!response.ok) {
+
+    }
+    return response.text();
+})
+.then(data => {
+    // console.log(data);
+    el = document.getElementsByClassName("tab")[0]
+    el.innerHTML = data.trim().split("\n")
+        .map(line => {
+            let splt = line.split(" ")
+            d = splt[0]
+            t = splt[1]
+            d = new Date(parseInt(d) * 1000)
+            return `<tr><td>${d.toLocaleString()}</td><td>${t}</td></tr>`
+        }).join("");
+        // .map(line => `<tr>${line.split(" ").map(x => `<td>${x}</td>`).join("")}</tr>`).join("")
+    
+    el.insertAdjacentHTML("afterbegin", `<tr><th>Time</th><th>Temp</th></tr>`);
+})
+
+let h1_map = {
+    "sec": "Temperature by seconds",
+    "hour": "Mean temperature per hour",
+    "day": "Mean temperature per day"
+}
+
+document.getElementsByTagName("h1")[0].innerHTML = h1_map[log_type]
+    </script>
+    <style>
+        table {
+            border-collapse: collapse;
+        }
+        td {
+            padding: 6px;
+            border: 2px black solid;
+        }
+    </style>
+</html>

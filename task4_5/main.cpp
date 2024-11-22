@@ -263,7 +263,7 @@ int main(int argc, char **argv)
         auto parsed = ParseTemperature(input);
         if (parsed.is_error)
         {
-            std::cerr << "Parsing error " << utillib::GetTime() << " -- Recieved: '" << input << "'" << std::endl;
+            // std::cerr << "Parsing error " << utillib::GetTime() << " -- Recieved: '" << input << "'" << std::endl;
             continue;
         }
         auto now_time = GetUNIXTimeNow();
@@ -295,12 +295,9 @@ void ServerThread()
     server.Listen("0.0.0.0", 80);
     std::vector<srvlib::SpecialResponse> resps;
 
-    auto log_sec = [&]()
-    { return utillib::ReadFile(LOG_SEC_NAME); };
-    auto log_hour = [&]()
-    { return utillib::ReadFile(LOG_HOUR_NAME); };
-    auto log_day = [&]()
-    { return utillib::ReadFile(LOG_DAY_NAME); };
+    auto log_sec = [](){ return utillib::ReadFile(LOG_SEC_NAME); };
+    auto log_hour = [](){ return utillib::ReadFile(LOG_HOUR_NAME); };
+    auto log_day = [](){ return utillib::ReadFile(LOG_DAY_NAME); };
 
     resps.emplace_back("GET", "/sec/raw", log_sec, true);
     resps.emplace_back("GET", "/hour/raw", log_hour, true);
