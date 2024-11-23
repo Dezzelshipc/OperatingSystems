@@ -70,13 +70,13 @@ namespace srvlib
 #else
         auto resp = utillib::Exec(("file --mime-type -b " + str).c_str());
         std::cout << resp << std::endl;
-        if (resp.find("cannot open") != std::string::npos && resp.find("ERROR") != std::string::npos)
+        if (resp.find("cannot open") == std::string::npos && resp.find("ERROR") == std::string::npos)
         {
             szResult = resp;
         }
 #endif
 
-        return szResult;
+        return utillib::Trim( szResult );
     }
 
     // Searches files near .exe file and sends str_path if it finds or "" if not
@@ -532,7 +532,9 @@ namespace srvlib
 
             // std::cout << response;
             // response += "<!--" + recv_str.str() + "-->";
-            std::cout << recv_str.str();
+            std::cout << recv_str.str() << "\n\n";
+
+            // std::cout << response << "\n\n";
 
             // Отправляем ответ клиенту
             result = send(client_socket, response.c_str(), (int)response.length(), 0);
