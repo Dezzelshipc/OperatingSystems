@@ -19,7 +19,6 @@ struct ParsedData
     bool is_error = false;
 };
 
-std::string DEFAULT_PORT = "COM4";
 
 std::string LOG_DIR = "logs";
 std::string LOG_SEC_NAME = LOG_DIR + "/second.log";
@@ -224,16 +223,32 @@ ParsedData ParseTemperature(const std::string str)
     }
 }
 
-void ServerThread();
+
+std::string DEFAULT_PORT = "COM4";
+std::string DEFAULT_HOST = "127.0.0.1";
+signed int DEFAULT_SERVER_PORT = 8080;
+
+void ServerThread(const std::string&, const signed int);
 
 int main(int argc, char **argv)
 {
-    std::thread server_thread(ServerThread);
 
     std::string port(DEFAULT_PORT);
     if (argc > 1)
     {
         port = argv[1];
+    }
+
+    std::string host_ip(DEFAULT_HOST);
+    if (argc > 2)
+    {
+        host_ip = argv[2];
+    }
+
+    signed int server_port = DEFAULT_SERVER_PORT;
+    if (argc > 3)
+    {
+        server_port = std::stoi(argv[3]);
     }
 
     splib::SerialPort serial_port(port, splib::SerialPort::BAUDRATE_115200);
@@ -244,7 +259,10 @@ int main(int argc, char **argv)
         std::cerr << "Failed to open " << port << " port!" << std::endl;
         return -2;
     }
-    std::cout << "Listening to port: " << port << std::endl;
+
+    std::cout << "Listening to serial port: " << port << std::endl;
+
+    std::thread server_thread(ServerThread, host_ip, server_port);
 
     auto tracking_data = TrackingData();
 
@@ -288,16 +306,26 @@ int main(int argc, char **argv)
     }
 }
 
-void ServerThread()
+void ServerThread(const std::string &host_ip, const signed int port)
 {
     srvlib::HTTPServer server;
 
-    server.Listen("0.0.0.0", 80);
+    server.Listen(host_ip, port);
     std::vector<srvlib::SpecialResponse> resps;
+    if (!server.IsValid())
+    {
+        std::cerr << "Args: [2: Host ip]; default: " << DEFAULT_HOST << std::endl;
+        std::cerr << "Args: [3: Host port]; default: " << DEFAULT_SERVER_PORT << std::endl;
+        std::cerr << "Server error" << std::endl;
+        return;
+    }
 
-    auto log_sec = [](){ return utillib::ReadFile(LOG_SEC_NAME); };
-    auto log_hour = [](){ return utillib::ReadFile(LOG_HOUR_NAME); };
-    auto log_day = [](){ return utillib::ReadFile(LOG_DAY_NAME); };
+    auto log_sec = []()
+    { return utillib::ReadFile(LOG_SEC_NAME); };
+    auto log_hour = []()
+    { return utillib::ReadFile(LOG_HOUR_NAME); };
+    auto log_day = []()
+    { return utillib::ReadFile(LOG_DAY_NAME); };
 
     resps.emplace_back("GET", "/sec/raw", log_sec, true);
     resps.emplace_back("GET", "/hour/raw", log_hour, true);

@@ -10,6 +10,12 @@
 #include <format>
 #include <cctype>
 
+#include <cstdio>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <array>
+
 namespace utillib
 {
     using namespace std;
@@ -57,4 +63,20 @@ namespace utillib
                            st->tm_min,
                            st->tm_sec);
     }
+
+#ifndef WIN32
+    std::string Exec(const char* cmd) {
+        std::shared_ptr<FILE> pipe(popen(cmd, "r"), pclose);
+        if (!pipe) {
+            return "ERROR";
+        }
+        char buffer[128];
+        std::string result;
+        while (!feof(pipe.get())) {
+            if (fgets(buffer, sizeof(buffer), pipe.get()) != NULL)
+                result += buffer;
+        }
+        return result;
+    }
+#endif
 }

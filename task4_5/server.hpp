@@ -18,9 +18,14 @@
 #else
 
 #include <sys/socket.h> /* socket */
+#include <sys/types.h>
 #include <netinet/in.h> /* socket */
 #include <arpa/inet.h>  /* socket */
 #include <unistd.h>
+#include <netdb.h> /* getaddrinfo */
+#include <poll.h> /* poll */
+#include <signal.h>
+#include <string.h> /* memset */
 #define SOCKET int
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
@@ -35,11 +40,12 @@ namespace srvlib
 
     std::string MimeTypeFromString(const std::string &str)
     {
+        std::string szResult = "application/unknown";
+#ifdef WIN32
         auto dot_i = str.find_last_of('.');
 
         std::string szExtension = str.substr(dot_i, str.size() - dot_i);
-        std::string szResult = "application/unknown";
-#ifdef WIN32
+
         HKEY hKey = NULL;
 
         // open registry key
@@ -62,7 +68,12 @@ namespace srvlib
             RegCloseKey(hKey);
         }
 #else
-
+        auto resp = utillib::Exec(("file --mime-type -b " + str).c_str());
+        std::cout << resp << std::endl;
+        if (resp.find("cannot open") != std::string::npos && resp.find("ERROR") != std::string::npos)
+        {
+            szResult = resp;
+        }
 #endif
 
         return szResult;
@@ -229,7 +240,7 @@ namespace srvlib
         {
             std::stringstream ans;
             ans << m_version << " " << m_response_type << "\r\n"
-                << "Content-Type: " << m_content_type << "; charset=utf-8\r\n" //
+                << "Content-Type: " << m_content_type << "\r\n" //; charset=utf-8
                 << "Content-Length: " << body.length()
                 << "\r\n\r\n"
                 << body;
@@ -424,7 +435,7 @@ namespace srvlib
                 std::cerr << "Failed to start listen: " << ErrorCode() << std::endl;
                 CloseSocket();
             }
-            std::cout << "Listening to: http://" << interface_ip << ":" << port << std::endl;
+            std::cout << "Server listening to: http://" << interface_ip << ":" << port << std::endl;
         }
 
         void ProcessClient()
