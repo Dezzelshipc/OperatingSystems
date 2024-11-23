@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.5.0)
 
-PROJECT(task3)
+PROJECT(task4_5)
 
-set (CMAKE_CXX_STANDARD 23)
+set (CMAKE_CXX_STANDARD 20)
 
 ADD_EXECUTABLE(temp serial.hpp server.hpp utility.hpp main.cpp)
 add_executable(sim serial.hpp simulator.cpp)

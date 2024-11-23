@@ -7,9 +7,9 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
-#include <chrono>
 #include <vector>
 #include <thread>
+#include <atomic>
 
 namespace fs = std::filesystem;
 
@@ -19,65 +19,16 @@ struct ParsedData
     bool is_error = false;
 };
 
-
 std::string LOG_DIR = "logs";
 std::string LOG_SEC_NAME = LOG_DIR + "/second.log";
 std::string LOG_HOUR_NAME = LOG_DIR + "/hour.log";
 std::string LOG_DAY_NAME = LOG_DIR + "/day.log";
 
-constexpr int64_t HOUR_SEC = 10;
-// constexpr int64_t HOUR_SEC = 60 * 60;
+// constexpr int64_t HOUR_SEC = 10; // speed up process
+constexpr int64_t HOUR_SEC = 60 * 60;
 constexpr int64_t DAY_SEC = HOUR_SEC * 24;
 constexpr int64_t MONTH_SEC = DAY_SEC * 30;
 constexpr int64_t YEAR_SEC = DAY_SEC * 365;
-
-struct TrackingData
-{
-    int64_t last_hour_gather = 0;
-    int64_t last_day_gather = 0;
-};
-
-int64_t GetUNIXTimeNow()
-{
-    return std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-}
-
-std::vector<std::string> SplitString(const std::string str, const char delimeter = ' ')
-{
-    std::vector<std::string> split;
-    std::istringstream iss(str);
-    std::string s;
-    while (getline(iss, s, ' '))
-    {
-        split.emplace_back(s);
-    }
-    return split;
-}
-
-std::string GetLastLine(std::ifstream &fi)
-{
-    fi.seekg(-1, std::ios_base::end);
-    if (fi.peek() == '\n')
-    {
-        // Start searching for \n occurrences
-        fi.seekg(-1, std::ios_base::cur);
-        int i = fi.tellg();
-        for (i; i > 0; i--)
-        {
-            if (fi.peek() == '\n')
-            {
-                // Found
-                fi.get();
-                break;
-            }
-            // Move one character back
-            fi.seekg(i, std::ios_base::beg);
-        }
-    }
-    std::string lastline;
-    getline(fi, lastline);
-    return lastline;
-}
 
 void CreateFileIfNotExists(const std::string name)
 {
@@ -85,24 +36,6 @@ void CreateFileIfNotExists(const std::string name)
     {
         std::ofstream(name).close();
     }
-}
-
-void SetTracking(const std::string name, int64_t &tracking)
-{
-    CreateFileIfNotExists(name);
-    std::ifstream fi(name);
-    fi.seekg(0, std::ios::end);
-    // if (fi.tellg() < 10)
-    // {
-    tracking = GetUNIXTimeNow();
-    // }
-    // else
-    // {
-    //     auto last_line = GetLastLine(fi);
-    //     auto split = SplitString(last_line); // 0 -> time, 1 -> temp
-    //     tracking = std::stoll(split[0]);
-    // }
-    fi.close();
 }
 
 double GetMeanTemp(const std::string file_name, const int64_t &now, const int64_t &diff_sec)
@@ -115,7 +48,7 @@ double GetMeanTemp(const std::string file_name, const int64_t &now, const int64_
     std::string line;
     while (std::getline(log, line))
     {
-        auto split = SplitString(line);
+        auto split = utillib::Split(line, " ");
         if (split.size() <= 0)
         {
             continue;
@@ -131,7 +64,7 @@ double GetMeanTemp(const std::string file_name, const int64_t &now, const int64_
 
     while (std::getline(log, line))
     {
-        auto split = SplitString(line);
+        auto split = utillib::Split(line, " ");
         mean += std::stod(split[1]);
         ++count;
     }
@@ -154,7 +87,7 @@ void WriteTempToFile(const std::string file_name, const double &temp, const int6
     std::string line;
     while (std::getline(temp_log, line))
     {
-        auto split = SplitString(line);
+        auto split = utillib::Split(line, " ");
         if (split.size() <= 0)
         {
             continue;
@@ -182,37 +115,16 @@ void WriteTempToFile(const std::string file_name, const double &temp, const int6
     fs::remove(temp_name);
 }
 
-ParsedData ParseTemperature(const std::string str)
+// Парсинг температуры в формате $$temp$$, где могут быть не все знаки $
+ParsedData ParseTemperature(const std::string &str)
 {
-    auto len = str.size();
-
-    int pos_f;
-    int pos_r;
-
-    for (int i = 0; i < len / 2 + 1; ++i)
+    auto comp_dollar = [](int ch)
     {
-        if (str[i] != '$')
-        {
-            pos_f = i;
-            break;
-        }
-    }
+        return (std::isspace(ch) != 0 || ch == '$') ? 1 : 0;
+    };
 
-    for (int i = len - 1; i > len / 2 - 1; --i)
-    {
-        if (str[i] != '$')
-        {
-            pos_r = i;
-            break;
-        }
-    }
+    auto str_temp = utillib::Trim(str, comp_dollar);
 
-    if (pos_f >= pos_r)
-    {
-        return {0, true};
-    }
-
-    auto str_temp = str.substr(pos_f, pos_r - pos_f);
     try
     {
         return {std::stod(str_temp), false};
@@ -223,60 +135,39 @@ ParsedData ParseTemperature(const std::string str)
     }
 }
 
+std::string DEFAULT_SERIAL_PORT_NAME = "COM4";
+std::string DEFAULT_SERVER_HOST = "127.0.0.1";
+short int DEFAULT_SERVER_PORT = 8080;
 
-std::string DEFAULT_PORT = "COM4";
-std::string DEFAULT_HOST = "127.0.0.1";
-signed int DEFAULT_SERVER_PORT = 8080;
+std::atomic_int64_t last_hour_gather = 0;
+std::atomic_int64_t last_day_gather = 0;
 
-void ServerThread(const std::string&, const signed int);
-
-int main(int argc, char **argv)
+void SerialThread(const std::string &serial_port_name)
 {
-
-    std::string port(DEFAULT_PORT);
-    if (argc > 1)
-    {
-        port = argv[1];
-    }
-
-    std::string host_ip(DEFAULT_HOST);
-    if (argc > 2)
-    {
-        host_ip = argv[2];
-    }
-
-    signed int server_port = DEFAULT_SERVER_PORT;
-    if (argc > 3)
-    {
-        server_port = std::stoi(argv[3]);
-    }
-
-    splib::SerialPort serial_port(port, splib::SerialPort::BAUDRATE_115200);
+    splib::SerialPort serial_port(serial_port_name, splib::SerialPort::BAUDRATE_115200);
 
     if (!serial_port.IsOpen())
     {
-        std::cout << "Args: [1: port]; default: " << DEFAULT_PORT << std::endl;
-        std::cerr << "Failed to open " << port << " port!" << std::endl;
-        return -2;
+        std::cout << "Args: [1: port]; default: " << DEFAULT_SERIAL_PORT_NAME << std::endl;
+        std::cerr << "Failed to open " << serial_port_name << " port!" << std::endl;
+        return;
     }
 
-    std::cout << "Listening to serial port: " << port << std::endl;
-
-    std::thread server_thread(ServerThread, host_ip, server_port);
-
-    auto tracking_data = TrackingData();
+    std::cout << "Listening to serial port: " << serial_port_name << std::endl;
 
     fs::create_directory(LOG_DIR);
-    CreateFileIfNotExists(LOG_SEC_NAME);                        // every recieved
-    SetTracking(LOG_HOUR_NAME, tracking_data.last_hour_gather); // mean every hour
-    SetTracking(LOG_DAY_NAME, tracking_data.last_day_gather);   // mean every day
+    CreateFileIfNotExists(LOG_SEC_NAME);
+    CreateFileIfNotExists(LOG_HOUR_NAME);
+    CreateFileIfNotExists(LOG_DAY_NAME);
+    last_hour_gather = utillib::GetUNIXTimeNow();
+    last_day_gather = utillib::GetUNIXTimeNow();
 
     std::string input;
     serial_port.SetTimeout(1.0);
 
-    // format: $$temp$$
     while (true)
     {
+        // format: $$temp$$
         serial_port >> input;
         auto parsed = ParseTemperature(input);
         if (parsed.is_error)
@@ -284,42 +175,42 @@ int main(int argc, char **argv)
             // std::cerr << "Parsing error " << utillib::GetTime() << " -- Recieved: '" << input << "'" << std::endl;
             continue;
         }
-        auto now_time = GetUNIXTimeNow();
+        auto now_time = utillib::GetUNIXTimeNow();
 
         WriteTempToFile(LOG_SEC_NAME, parsed.temp, now_time, DAY_SEC);
 
-        // std::cout << now_time - tracking_data.last_hour_gather << std::endl;
-        if (now_time - tracking_data.last_hour_gather >= HOUR_SEC)
+        // std::cout << now_time - last_hour_gather << std::endl;
+        if (now_time - last_hour_gather >= HOUR_SEC)
         {
             // get hour mean
             double hour_mean = GetMeanTemp(LOG_SEC_NAME, now_time, HOUR_SEC);
             WriteTempToFile(LOG_HOUR_NAME, hour_mean, now_time, MONTH_SEC);
-            tracking_data.last_hour_gather = now_time;
+            last_hour_gather = now_time;
         }
-        if (now_time - tracking_data.last_day_gather >= DAY_SEC)
+        if (now_time - last_day_gather >= DAY_SEC)
         {
             // get day mean
             double day_mean = GetMeanTemp(LOG_HOUR_NAME, now_time, DAY_SEC);
             WriteTempToFile(LOG_DAY_NAME, day_mean, now_time, YEAR_SEC);
-            tracking_data.last_day_gather = now_time;
+            last_day_gather = now_time;
         }
     }
 }
 
-void ServerThread(const std::string &host_ip, const signed int port)
+void ServerThread(const std::string &host_ip, const short int port)
 {
-    srvlib::HTTPServer server;
-
-    server.Listen(host_ip, port);
-    std::vector<srvlib::SpecialResponse> resps;
+    srvlib::HTTPServer server(host_ip, port);
     if (!server.IsValid())
     {
-        std::cerr << "Args: [2: Host ip]; default: " << DEFAULT_HOST << std::endl;
+        std::cerr << "Args: [2: Host ip]; default: " << DEFAULT_SERVER_HOST << std::endl;
         std::cerr << "Args: [3: Host port]; default: " << DEFAULT_SERVER_PORT << std::endl;
         std::cerr << "Server error" << std::endl;
         return;
     }
 
+    std::cout << "Server listening to: http://" << host_ip << ":" << port << std::endl;
+
+    std::vector<srvlib::SpecialResponse> resps;
     auto log_sec = []()
     { return utillib::ReadFile(LOG_SEC_NAME); };
     auto log_hour = []()
@@ -340,5 +231,70 @@ void ServerThread(const std::string &host_ip, const signed int port)
             break;
         }
         server.ProcessClient();
+    }
+}
+
+int main(int argc, char **argv)
+{
+    using namespace std;
+    using namespace utillib;
+
+    string serial_port_name(argc > 1 ? argv[1] : DEFAULT_SERIAL_PORT_NAME);
+    string host_ip(argc > 2 ? argv[2] : DEFAULT_SERVER_HOST);
+    signed int server_port = argc > 3 ? stoi(argv[3]) : DEFAULT_SERVER_PORT;
+
+    thread serial_thread(SerialThread, serial_port_name);
+    thread server_thread(ServerThread, host_ip, server_port);
+
+    this_thread::sleep_for(chrono::milliseconds(10));
+
+    cout << "lhg, ldg, lhg_m, ldg_m, sp, host" << endl;
+    string input;
+    while (true)
+    {
+        cin >> input;
+        // modify last_hout_gather
+        if (input == "lhg_m")
+        {
+            cout << "Inupt number of seconds to subtruct from now and apply to 'last_hout_gather':\n";
+            cin >> input;
+            try
+            {
+                last_hour_gather = GetUNIXTimeNow() - stoll(input);
+            }
+            catch (const std::invalid_argument &e)
+            {
+                cout << "Error parsing " << e.what() << endl;
+            }
+        }
+        else if (input == "ldg_m")
+        {
+            cout << "Inupt number of seconds to subtruct from now and apply to 'last_day_gather':\n";
+            cin >> input;
+            try
+            {
+                last_day_gather = GetUNIXTimeNow() - stoll(input);
+            }
+            catch (const std::invalid_argument &e)
+            {
+                cout << "Error parsing " << e.what() << endl;
+            }
+        }
+        else if (input == "lhg")
+        {
+            cout << "last_hout_gather = " << last_hour_gather << " | " << GetTimeFromSec(last_hour_gather) << endl;
+        }
+        else if (input == "ldg")
+        {
+            cout << "last_day_gather  = " << last_day_gather << " | " << GetTimeFromSec(last_day_gather) << endl;
+        }
+        else if (input == "sp")
+        {
+            cout << "Sreial port is listening to '" << serial_port_name << "'" << endl;
+        }
+        else if (input == "host")
+        {
+            cout << "Server is listening to 'http://" << host_ip << ":" << server_port << "'" << endl;
+        }
     }
 }

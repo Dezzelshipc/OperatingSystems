@@ -10,10 +10,10 @@
 
 #include "utility.hpp"
 
-#if defined(WIN32)
+#ifdef WIN32
 
 #include <winsock2.h> /* socket */
-#include <ws2tcpip.h> /* ipv6 */
+#include <ws2tcpip.h> /* getaddrinfo */
 
 #else
 
@@ -23,7 +23,7 @@
 #include <arpa/inet.h>  /* socket */
 #include <unistd.h>
 #include <netdb.h> /* getaddrinfo */
-#include <poll.h> /* poll */
+#include <poll.h>  /* poll */
 #include <signal.h>
 #include <string.h> /* memset */
 #define SOCKET int
@@ -38,13 +38,12 @@ namespace srvlib
 #define DEFAULT_HTTP_VERSION "HTTP/1.1"
     namespace fs = std::filesystem;
 
+    // Находит тип MIME для правильной отправки контента
     std::string MimeTypeFromString(const std::string &str)
     {
         std::string szResult = "application/unknown";
 #ifdef WIN32
-        auto dot_i = str.find_last_of('.');
-
-        std::string szExtension = str.substr(dot_i, str.size() - dot_i);
+        std::string szExtension = str.substr(str.find_last_of('.'), std::string::npos);
 
         HKEY hKey = NULL;
 
@@ -69,17 +68,18 @@ namespace srvlib
         }
 #else
         auto resp = utillib::Exec(("file --mime-type -b " + str).c_str());
-        std::cout << resp << std::endl;
+        // "cannot open" если файл не существует, "ERROR", если cmd не открылась
         if (resp.find("cannot open") == std::string::npos && resp.find("ERROR") == std::string::npos)
         {
             szResult = resp;
         }
 #endif
-
-        return utillib::Trim( szResult );
+        szResult = utillib::Trim(szResult);
+        std::cout << szResult << std::endl;
+        return szResult;
     }
 
-    // Searches files near .exe file and sends str_path if it finds or "" if not
+    // Ищет файл в папках рядом с .exe и выводит его путь, если он нашёлся, либо "", если нет
     std::string FindAssets(const std::string file_path)
     {
         std::string path = file_path;
@@ -99,13 +99,21 @@ namespace srvlib
             try_paths.emplace_back("../html");
             try_paths.emplace_back("./html");
         }
-        else
+        else if (path.ends_with(".css"))
         {
-            try_paths.emplace_back("../assets");
-            try_paths.emplace_back("./assets");
-            try_paths.emplace_back("..");
-            try_paths.emplace_back(".");
+            try_paths.emplace_back("../css");
+            try_paths.emplace_back("./css");
         }
+        else if (path.ends_with(".js"))
+        {
+            try_paths.emplace_back("../js");
+            try_paths.emplace_back("./js");
+        }
+
+        try_paths.emplace_back("../assets");
+        try_paths.emplace_back("./assets");
+        try_paths.emplace_back("..");
+        try_paths.emplace_back(".");
 
         for (auto &p : try_paths)
         {
@@ -120,6 +128,7 @@ namespace srvlib
 
     class SpecialResponse;
 
+    // Распарсенный запрос клиента
     class Request
     {
         std::string m_method;
@@ -165,6 +174,7 @@ namespace srvlib
             }
         }
 
+        // Проверяет, что метод и URL запроса совпадают для специального ответа
         bool CheckResponse(SpecialResponse response) const;
 
         std::string GetMethod() const
@@ -193,9 +203,9 @@ namespace srvlib
         }
     };
 
+    // Ответ сервера, готовый для отправки
     class Response
     {
-
     protected:
         std::string m_response_type;
         std::string m_content_type;
@@ -236,6 +246,7 @@ namespace srvlib
             return *this;
         }
 
+        // Строка с минимальным хедером и телом ответа
         std::string GetAnswer(const std::string &body) const
         {
             std::stringstream ans;
@@ -248,6 +259,7 @@ namespace srvlib
         }
     };
 
+    // Спациальный ответ, тело которого определяется функцией void -> string [string f(void)]
     class SpecialResponse : public Response
     {
     protected:
@@ -284,6 +296,7 @@ namespace srvlib
             return m_url;
         }
 
+        // true, если ответ требуется без хедера (сырые данные)
         bool IsRaw()
         {
             return m_is_raw;
@@ -295,6 +308,7 @@ namespace srvlib
         return response.GetMethod() == GetMethod() && response.GetURL() == GetURL();
     }
 
+    // Ответ 404
     class ErrorResponse : public Response
     {
 
@@ -359,7 +373,7 @@ namespace srvlib
         {
             if (sock == INVALID_SOCKET)
                 return;
-#if defined(WIN32)
+#ifdef WIN32
             shutdown(sock, SD_SEND);
             closesocket(sock);
 #else
@@ -368,6 +382,7 @@ namespace srvlib
 #endif
         }
 
+        // Если < 0, то сокет не готов к общению
         static int Poll(const SOCKET &socket, int timeout_ms = READ_WAIT_MS)
         {
             struct pollfd polstr;
@@ -387,7 +402,13 @@ namespace srvlib
     class HTTPServer : public SocketBase
     {
     public:
-        void Listen(const std::string &interface_ip, short int port)
+        HTTPServer(const std::string &interface_ip, const short int port)
+        {
+            Listen(interface_ip, port);
+        }
+
+        // Создать сокет сервера для прослушивания
+        void Listen(const std::string &interface_ip, const short int port)
         {
             if (m_socket != INVALID_SOCKET)
             {
@@ -435,9 +456,9 @@ namespace srvlib
                 std::cerr << "Failed to start listen: " << ErrorCode() << std::endl;
                 CloseSocket();
             }
-            std::cout << "Server listening to: http://" << interface_ip << ":" << port << std::endl;
         }
 
+        // Обрабатывает запрос клиента, если никаких ошибок не произошло
         void ProcessClient()
         {
             if (!IsValid())
@@ -446,6 +467,7 @@ namespace srvlib
                 return;
             }
 
+            // Ожидает пока не примет запрос
             SOCKET client_socket = accept(m_socket, NULL, NULL);
             if (client_socket == INVALID_SOCKET)
             {
@@ -490,7 +512,7 @@ namespace srvlib
 
             std::cout << request.GetMethod() << " " << request.GetURL() << " " << request.GetFileURL() << std::endl;
 
-            // Try find special response
+            // Пытаемся найти специальный ответ SpecialResponse
             int index_r = -1;
             for (int i = 0; i < m_sp_responses.size(); ++i)
             {
@@ -502,7 +524,7 @@ namespace srvlib
             }
 
             std::string response;
-            // If found then show
+            // Если нашли, то отправляем
             if (index_r != -1)
             {
                 if (m_sp_responses[index_r].IsRaw())
@@ -516,31 +538,26 @@ namespace srvlib
             }
             else
             {
-                // If not found, try find file in near folders
+                // Если нет, то ищем файл в папках рядом с .exe (уже не/нашло при создании request)
                 std::string path = request.GetFileURL();
                 if (!path.empty())
                 {
-                    // std::cout << MimeTypeFromString(path) << '\n';
                     response = Response(request).GetAnswer(utillib::ReadFile(path));
                 }
                 else
                 {
-                    // If not found, then 404
+                    // Если у нас лапки, и ничего вообще не нашлось, то отправляем 404
                     response = error_response.GetAnswer();
                 }
             }
 
-            // std::cout << response;
-            // response += "<!--" + recv_str.str() + "-->";
             std::cout << recv_str.str() << "\n\n";
-
-            // std::cout << response << "\n\n";
 
             // Отправляем ответ клиенту
             result = send(client_socket, response.c_str(), (int)response.length(), 0);
             if (result == SOCKET_ERROR)
             {
-                // произошла ошибка при отправке данных
+                // Произошла ошибка при отправке данных
                 std::cerr << "Failed to send responce to client: " << ErrorCode() << std::endl;
             }
             // Закрываем соединение к клиентом

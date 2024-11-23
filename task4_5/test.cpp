@@ -31,8 +31,7 @@ int main(int argc, char **argv)
 {
     using namespace srvlib;
 
-    HTTPServer srv;
-    srv.Listen("127.0.0.1", 8010);
+    HTTPServer srv("127.0.0.1", 8010);
 
     std::vector<SpecialResponse> resps;
     resps.emplace_back("GET", "/", test);
