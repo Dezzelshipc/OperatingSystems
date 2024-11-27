@@ -266,11 +266,11 @@ namespace srvlib
         std::string m_method;
         std::string m_url;
         std::string (*m_body_func)(void);
-        bool m_is_raw = false;
+        bool m_is_raw;
 
     public:
         SpecialResponse(const std::string &method, const std::string &url, std::string (*body_func)(void), bool is_raw = false)
-            : m_method(method), m_url(url), m_body_func(body_func), m_is_raw(is_raw), Response() {}
+            : Response(), m_method(method), m_url(url), m_body_func(body_func), m_is_raw(is_raw) {}
 
         std::string GetBody()
         {
@@ -514,7 +514,7 @@ namespace srvlib
 
             // Пытаемся найти специальный ответ SpecialResponse
             int index_r = -1;
-            for (int i = 0; i < m_sp_responses.size(); ++i)
+            for (uint64_t i = 0; i < m_sp_responses.size(); ++i)
             {
                 if (request.CheckResponse(m_sp_responses[i]))
                 {
