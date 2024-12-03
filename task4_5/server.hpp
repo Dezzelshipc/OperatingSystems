@@ -218,7 +218,7 @@ namespace srvlib
         Response(const std::string &response_type, const std::string &content_type)
             : Response(response_type, content_type, DEFAULT_HTTP_VERSION) {}
 
-        Response(const std::string &response_type) : Response(response_type, "text/html") {}
+        Response(const std::string &response_type) : Response(response_type, "text/plain") {}
 
         Response() : Response("200 OK") {}
 
@@ -491,6 +491,10 @@ namespace srvlib
             do
             {
                 result = recv(client_socket, m_input_buf, buf_size, 0);
+                if (result < 0)
+                {
+                    break;
+                }
                 m_input_buf[result] = '\0';
                 recv_str << m_input_buf;
             } while (result >= buf_size);

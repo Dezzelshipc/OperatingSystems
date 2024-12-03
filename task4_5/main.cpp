@@ -218,9 +218,9 @@ void ServerThread(const std::string &host_ip, const short int port)
     auto log_day = []()
     { return utillib::ReadFile(LOG_DAY_NAME); };
 
-    resps.emplace_back("GET", "/sec/raw", log_sec, true);
-    resps.emplace_back("GET", "/hour/raw", log_hour, true);
-    resps.emplace_back("GET", "/day/raw", log_day, true);
+    resps.emplace_back("GET", "/sec/raw", log_sec);
+    resps.emplace_back("GET", "/hour/raw", log_hour);
+    resps.emplace_back("GET", "/day/raw", log_day);
 
     server.RegisterResponses(resps);
     while (true)
