@@ -1,0 +1,6 @@
+<RCC>
+    <qresource>
+        <file>Localization/task6_en_US.qm</file>
+        <file>Localization/task6_ru_RU.qm</file>
+    </qresource>
+</RCC>

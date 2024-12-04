@@ -27,8 +27,16 @@
     <property name="title">
      <string>Settings</string>
     </property>
+    <widget class="QMenu" name="menu_Language">
+     <property name="title">
+      <string>&amp;Language</string>
+     </property>
+     <addaction name="actionEnglish"/>
+     <addaction name="actionRussian"/>
+    </widget>
     <addaction name="action_ChangeServer"/>
     <addaction name="separator"/>
+    <addaction name="menu_Language"/>
     <addaction name="action_About"/>
    </widget>
    <addaction name="menuSettings"/>
@@ -50,13 +58,23 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset theme="QIcon::ThemeIcon::HelpFaq"/>
+    <iconset theme="QIcon::ThemeIcon::HelpAbout"/>
    </property>
    <property name="text">
     <string>&amp;About</string>
    </property>
    <property name="menuRole">
     <enum>QAction::MenuRole::NoRole</enum>
+   </property>
+  </action>
+  <action name="actionEnglish">
+   <property name="text">
+    <string>English</string>
+   </property>
+  </action>
+  <action name="actionRussian">
+   <property name="text">
+    <string>Russian</string>
    </property>
   </action>
  </widget>

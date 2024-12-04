@@ -3,13 +3,19 @@
 
 #include <QString>
 
-class Config
+struct Config
 {
-public:
     Config() = delete;
 
-    static inline QString host_ip = "127.0.0.1";
-    static inline qint16 host_port = 8080;
+    struct Default {
+        Default() = delete;
+
+        static inline QString host_ip = "127.0.0.1";
+        static inline qint16 host_port = 8080;
+    };
+
+    static inline QString host_ip = Default::host_ip;
+    static inline qint16 host_port = Default::host_port;
 };
 
 #endif // CONFIG_H

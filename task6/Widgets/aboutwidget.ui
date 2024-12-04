@@ -6,12 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>300</width>
+    <height>200</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>About</string>
+  </property>
+  <property name="autoFillBackground">
+   <bool>false</bool>
   </property>
   <widget class="QWidget" name="verticalLayoutWidget">
    <property name="geometry">
@@ -26,21 +29,21 @@
     <item>
      <widget class="QLabel" name="label">
       <property name="text">
-       <string>About_CreatedBy</string>
+       <string>Created by:</string>
       </property>
      </widget>
     </item>
     <item>
      <widget class="QLabel" name="label_2">
       <property name="text">
-       <string>About_Creators</string>
+       <string>Creators names</string>
       </property>
      </widget>
     </item>
     <item>
      <widget class="QLabel" name="label_3">
       <property name="text">
-       <string>About_Year</string>
+       <string>2024 - FEFU</string>
       </property>
      </widget>
     </item>

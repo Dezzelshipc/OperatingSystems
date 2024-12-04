@@ -1,6 +1,7 @@
 QT       += core gui
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += core \
+greaterThan(QT_MAJOR_VERSION, 4): QT += \
+    core \
     widgets \
     network
 
@@ -14,6 +15,7 @@ SOURCES += \
     Network/clientmanager.cpp \
     Utility/config.cpp \
     Widgets/aboutwidget.cpp \
+    Widgets/changeserverwidget.cpp \
     main.cpp \
     mainwindow.cpp \
     Network/client.cpp \
@@ -24,6 +26,7 @@ HEADERS += \
     Network/clientmanager.h \
     Utility/config.h \
     Widgets/aboutwidget.h \
+    Widgets/changeserverwidget.h \
     mainwindow.h \
     Network/client.h \
     Utility/config.h
@@ -31,6 +34,7 @@ HEADERS += \
 
 FORMS += \
     Widgets/aboutwidget.ui \
+    Widgets/changeserverwidget.ui \
     mainwindow.ui
 
 # Default rules for deployment.
@@ -41,3 +45,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 TRANSLATIONS += \
     Localization/task6_en_US.ts \
     Localization/task6_ru_RU.ts
+
+RESOURCES += \
+    Resources.qrc
