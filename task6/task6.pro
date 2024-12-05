@@ -14,6 +14,7 @@ CONFIG += c++17
 SOURCES += \
     Network/clientmanager.cpp \
     Utility/config.cpp \
+    Utility/parser.cpp \
     Widgets/aboutwidget.cpp \
     Widgets/changeserverwidget.cpp \
     main.cpp \
@@ -25,6 +26,7 @@ SOURCES += \
 HEADERS += \
     Network/clientmanager.h \
     Utility/config.h \
+    Utility/parser.h \
     Widgets/aboutwidget.h \
     Widgets/changeserverwidget.h \
     mainwindow.h \
@@ -48,3 +50,6 @@ TRANSLATIONS += \
 
 RESOURCES += \
     Resources.qrc
+
+DISTFILES += \
+    Localization/loc_readme.txt

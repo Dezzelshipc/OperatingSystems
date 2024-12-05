@@ -7,8 +7,12 @@
 #include "Widgets/aboutwidget.h"
 #include "Widgets/changeserverwidget.h"
 
+#include "Utility/parser.h"
+
+#include <QTableWidgetItem>
+
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), translator(new QTranslator)
+    : QMainWindow(parent), ui(new Ui::MainWindow), translator(new QTranslator), client(new Client)
 {
     mainInstance = this;
     connect(this, &MainWindow::languageChanged, this, &MainWindow::retranslate);
@@ -16,15 +20,26 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     changeLanguage("ru_RU");
 
-    QPointer<Client> client = new Client;
 
-    connect(client, &Client::recievedData, this, [=](QString str)
+    connect(client, &Client::recievedData, this, [=](const QString& str_recv)
             {
-                qDebug() << str << "!!!";
+                auto str = str_recv.trimmed();
+                auto parsed = Parser::ParseFromString(str);
+                ui->scrollableText->setText(Parser::GetFromList(parsed));
+
+                ui->tableWidget->clearContents();
+                ui->tableWidget->setRowCount(parsed.size());
+                ui->tableWidget->setColumnCount(2);
+                ui->tableWidget->setColumnWidth(0, 200);
+                for (int i = 0; i < parsed.size(); ++i)
+                {
+                    QTableWidgetItem* item_d = new QTableWidgetItem(parsed[i].datetime.toString("dd.MM.yyyy hh.mm.ss"));
+                    ui->tableWidget->setItem(i, 0, item_d);
+
+                    QTableWidgetItem* item_t = new QTableWidgetItem(QString::number( parsed[i].temp ));
+                    ui->tableWidget->setItem(i, 1, item_t);
+                }
             });
-
-    ClientManager::getLog(client, ClientManager::HOUR);
-
 }
 
 MainWindow::~MainWindow()
@@ -78,5 +93,23 @@ void MainWindow::on_actionEnglish_triggered()
 void MainWindow::on_actionRussian_triggered()
 {
     changeLanguage("ru_RU");
+}
+
+
+void MainWindow::on_pushButton_log_sec_clicked()
+{
+    ClientManager::getLog(client, ClientManager::SEC);
+}
+
+
+void MainWindow::on_pushButton_log_hour_clicked()
+{
+    ClientManager::getLog(client, ClientManager::HOUR);
+}
+
+
+void MainWindow::on_pushButton_log_day_clicked()
+{
+    ClientManager::getLog(client, ClientManager::DAY);
 }
 

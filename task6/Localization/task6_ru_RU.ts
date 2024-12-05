@@ -60,32 +60,57 @@
         <translation>Измерение температуры</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="28"/>
+        <location filename="../mainwindow.ui" line="34"/>
+        <source>Text Tab</source>
+        <translation>Текст</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="67"/>
+        <source>Table Tab</source>
+        <translation>Таблица</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="82"/>
+        <source>Show log sec</source>
+        <translation>Показать лог за день</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="89"/>
+        <source>Show log hour</source>
+        <translation>Показать лог за месяц</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="96"/>
+        <source>Show log day</source>
+        <translation>Показать лог за год</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="117"/>
         <source>Settings</source>
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="32"/>
+        <location filename="../mainwindow.ui" line="121"/>
         <source>&amp;Language</source>
         <translation>Язык</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="50"/>
+        <location filename="../mainwindow.ui" line="139"/>
         <source>&amp;Change server</source>
         <translation>Изменить сервер</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="64"/>
+        <location filename="../mainwindow.ui" line="153"/>
         <source>&amp;About</source>
         <translation>О приложении</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="72"/>
+        <location filename="../mainwindow.ui" line="161"/>
         <source>English</source>
         <translation>Английский</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="77"/>
+        <location filename="../mainwindow.ui" line="166"/>
         <source>Russian</source>
         <translation>Русский</translation>
     </message>
