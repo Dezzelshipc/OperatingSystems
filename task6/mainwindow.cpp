@@ -29,6 +29,11 @@ MainWindow::MainWindow(QWidget *parent)
     connect(client, &Client::recievedData, this, [=](const QString& str_recv)
             {
                 auto str = str_recv.trimmed();
+                if (str.isEmpty())
+                {
+                    return;
+                }
+
                 auto parsed = Parser::ParseFromString(str);
                 ui->scrollableText->setText(Parser::GetFromList(parsed));
 
@@ -65,6 +70,7 @@ void MainWindow::changeEvent(QEvent *event)
 
 void MainWindow::changeChartTheme()
 {
+#if (QML_IMPORT_MINOR_VERSION >= 5)
     switch (QGuiApplication::styleHints()->colorScheme()) {
     case Qt::ColorScheme::Light:
     case Qt::ColorScheme::Unknown:
@@ -74,6 +80,7 @@ void MainWindow::changeChartTheme()
         chart->setTheme(QChart::ChartThemeDark);
         break;
     }
+#endif
 }
 
 const MainWindow* MainWindow::instance()

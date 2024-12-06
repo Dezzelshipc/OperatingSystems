@@ -2,7 +2,6 @@
 #define PARSER_H
 
 #include <QString>
-#include <QtTypes>
 #include <QDateTime>
 #include <QList>
 
