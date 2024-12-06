@@ -8,6 +8,7 @@
 #include "Widgets/changeserverwidget.h"
 
 #include <QLineSeries>
+#include <QtGlobal>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -70,7 +71,7 @@ void MainWindow::changeEvent(QEvent *event)
 
 void MainWindow::changeChartTheme()
 {
-#if (QML_IMPORT_MINOR_VERSION >= 5)
+#if (QT_VERSION > QT_VERSION_CHECK(6, 4, 0))
     switch (QGuiApplication::styleHints()->colorScheme()) {
     case Qt::ColorScheme::Light:
     case Qt::ColorScheme::Unknown:
