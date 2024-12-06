@@ -71,7 +71,7 @@ void MainWindow::changeEvent(QEvent *event)
 
 void MainWindow::changeChartTheme()
 {
-#if (QT_VERSION > QT_VERSION_CHECK(6, 4, 0))
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
     switch (QGuiApplication::styleHints()->colorScheme()) {
     case Qt::ColorScheme::Light:
     case Qt::ColorScheme::Unknown:
