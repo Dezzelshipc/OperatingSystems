@@ -6,22 +6,22 @@
     <message>
         <location filename="../Widgets/aboutwidget.ui" line="14"/>
         <source>About</source>
-        <translation type="unfinished"></translation>
+        <translation>About</translation>
     </message>
     <message>
         <location filename="../Widgets/aboutwidget.ui" line="32"/>
         <source>Created by:</source>
-        <translation type="unfinished"></translation>
+        <translation>Created by:</translation>
     </message>
     <message>
         <location filename="../Widgets/aboutwidget.ui" line="39"/>
         <source>Creators names</source>
-        <translation type="unfinished"></translation>
+        <translation>Derzhapolskiy Yuri</translation>
     </message>
     <message>
         <location filename="../Widgets/aboutwidget.ui" line="46"/>
         <source>2024 - FEFU</source>
-        <translation type="unfinished"></translation>
+        <translation>2024 - FEFU</translation>
     </message>
 </context>
 <context>
@@ -29,27 +29,27 @@
     <message>
         <location filename="../Widgets/changeserverwidget.ui" line="14"/>
         <source>ChangeServerTitle</source>
-        <translation type="unfinished"></translation>
+        <translation>Change server</translation>
     </message>
     <message>
         <location filename="../Widgets/changeserverwidget.ui" line="63"/>
         <source>127.0.0.1</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="../Widgets/changeserverwidget.ui" line="76"/>
         <source>8080</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="../Widgets/changeserverwidget.ui" line="83"/>
         <source>Host IP</source>
-        <translation type="unfinished"></translation>
+        <translation></translation>
     </message>
     <message>
         <location filename="../Widgets/changeserverwidget.ui" line="90"/>
         <source>Host Port</source>
-        <translation type="unfinished"></translation>
+        <translation>Host port</translation>
     </message>
 </context>
 <context>
@@ -57,62 +57,77 @@
     <message>
         <location filename="../mainwindow.ui" line="14"/>
         <source>MainWindow</source>
-        <translation type="unfinished"></translation>
+        <translation>Temperature shower</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="54"/>
+        <source>Text Tab</source>
+        <translation>Text</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.ui" line="44"/>
+        <source>Table Tab</source>
+        <translation>Table</translation>
     </message>
     <message>
         <location filename="../mainwindow.ui" line="34"/>
-        <source>Text Tab</source>
-        <translation type="unfinished"></translation>
+        <source>Graph Tab</source>
+        <translation>Graph</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="67"/>
-        <source>Table Tab</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../mainwindow.ui" line="82"/>
+        <location filename="../mainwindow.ui" line="92"/>
         <source>Show log sec</source>
-        <translation type="unfinished"></translation>
+        <translation>Show log for day</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="89"/>
+        <location filename="../mainwindow.ui" line="99"/>
         <source>Show log hour</source>
-        <translation type="unfinished"></translation>
+        <translation>Show log for month</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="96"/>
+        <location filename="../mainwindow.ui" line="106"/>
         <source>Show log day</source>
-        <translation type="unfinished"></translation>
+        <translation>Show log for year</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="117"/>
+        <location filename="../mainwindow.ui" line="127"/>
         <source>Settings</source>
-        <translation type="unfinished"></translation>
+        <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="121"/>
+        <location filename="../mainwindow.ui" line="131"/>
         <source>&amp;Language</source>
-        <translation type="unfinished"></translation>
+        <translation>Language</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="139"/>
+        <location filename="../mainwindow.ui" line="149"/>
         <source>&amp;Change server</source>
-        <translation type="unfinished"></translation>
+        <translation>Change server</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="153"/>
+        <location filename="../mainwindow.ui" line="163"/>
         <source>&amp;About</source>
-        <translation type="unfinished"></translation>
+        <translation>About</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="161"/>
+        <location filename="../mainwindow.ui" line="171"/>
         <source>English</source>
-        <translation type="unfinished"></translation>
+        <translation>English</translation>
     </message>
     <message>
-        <location filename="../mainwindow.ui" line="166"/>
+        <location filename="../mainwindow.ui" line="176"/>
         <source>Russian</source>
-        <translation type="unfinished"></translation>
+        <translation>Russian</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="141"/>
+        <source>Date</source>
+        <translation>Date and time</translation>
+    </message>
+    <message>
+        <location filename="../mainwindow.cpp" line="148"/>
+        <source>Trmperature</source>
+        <translation>Temperature</translation>
     </message>
 </context>
 </TS>

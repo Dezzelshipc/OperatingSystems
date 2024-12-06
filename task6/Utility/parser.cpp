@@ -21,7 +21,7 @@ QString Parser::GetFromList(const QList<Parser::DateTemp>& list)
     QString string;
     for (const auto& d_t : list)
     {
-        string += QString("%1 %2\n").arg(d_t.datetime.toString()).arg(d_t.temp);
+        string += QString("%1 %2\n").arg(d_t.datetime.toString("dd.MM.yyyy hh:mm:ss")).arg(d_t.temp);
     }
     return string;
 }
