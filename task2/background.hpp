@@ -23,13 +23,4 @@ int start_background(const char *program_path, int &status);
  * @param pid Process id of program.
  * @return code of error or 0 if successful.
  */
-int wait_program(const int pid);
-
-/**
- * Starts program in background with ability to wait or leave it.
- *
- * @param program_path Absolute or relative path to program.
- * @param is_wait If true then waits program to finish.
- * @return code of error or 0 if successful.
- */
-int start_wait(const char *program_path, bool is_wait = true);
+int wait_program(const int pid, int* exit_code = nullptr);

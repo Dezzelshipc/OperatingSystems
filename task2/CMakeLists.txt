@@ -9,4 +9,7 @@ set(LIB_HDRS background.hpp)
 add_library(background SHARED ${LIB_HDRS} ${LIB_SRCS})
 add_executable(main main.cpp ${LIB_HDRS} ${LIB_SRCS})
 
+add_executable(subprogram subprogram.cpp)
+add_executable(error error.cpp)
+
 target_link_libraries(main background)

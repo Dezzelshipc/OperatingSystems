@@ -51,8 +51,6 @@ int start_background(const char *program_path, int& status)
         argv,
         NULL);
 
-    // std::cout << strerror(status) << "\n";
-
     return pid;
 #endif
 }
@@ -62,12 +60,16 @@ int start_background(const char *program_path) {
     return start_background(program_path, status);
 }
 
-int wait_program(const int signed pid)
+int wait_program(const int pid, int* exit_code)
 {
 #ifdef _WIN32
 
     HANDLE handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
-    signed int status = WaitForSingleObject(handle, INFINITE);
+    int status = WaitForSingleObject(handle, INFINITE);
+    if (exit_code != nullptr)
+    {
+        GetExitCodeProcess(handle, (unsigned long*)exit_code);
+    }
     CloseHandle(handle);
 
     return status;
@@ -77,24 +79,7 @@ int wait_program(const int signed pid)
     int status;
     waitpid(pid, &status, 0);
 
-    // std::cout << status << " "<< strerror(status) <<"\n";
     return status;
 
 #endif
-}
-
-int start_wait(const char *program_path, bool is_wait)
-{
-    int status{};
-    int pid = start_background(program_path, status);
-
-    if (status != 0) {
-        return status;
-    }
-
-    if (is_wait)
-    {
-        return wait_program(pid);
-    }
-    return 0;
 }

@@ -1,26 +1,25 @@
 #include "background.hpp"
 #include <iostream>
 
-
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
 
 #ifdef _WIN32
-    const char *path = "..\\subprogram.exe";
+    const char *path = ".\\subprogram.exe";
 #else
-    const char *path = "../subprogram";
+    const char *path = "./subprogram";
 #endif
 
-    if (argc > 1)
+    bool is_wait = !(argc > 1) || std::stoi(argv[1]);
+
+    if (argc > 2)
     {
-        path = argv[1];
+        path = argv[2];
     }
 
-    int pid{};
-    // pid = start_background(path);
-    // auto exit_code = wait_program(pid);
+    int pid{}, exit_code;
+    pid = start_background(path);
+    auto status = wait_program(pid, &exit_code);
 
-    auto exit_code = start_wait(path, true);
-
-    std::cout << pid << " " << exit_code << " Ended" << "\n";
+    std::cout << "Ended pid=" << pid << " exit_code=" << exit_code << " status=" << status << "\n";
 }

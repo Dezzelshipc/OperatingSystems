@@ -1,4 +1,4 @@
-# Tepmerature server
+# Task 4+5: Tepmerature server
 1. Server that can recieve temperature data by serial port, work as html server to send html files or raw temperature data.
 ```
 temp [serial port | COM4] [server ip | 127.0.0.1] [server port | 8080]
