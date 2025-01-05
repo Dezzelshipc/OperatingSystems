@@ -17,9 +17,12 @@ int main(int argc, char *argv[])
         path = argv[2];
     }
 
-    int pid{}, exit_code;
-    pid = start_background(path);
-    auto status = wait_program(pid, &exit_code);
+    int pid = start_background(path);
+    int exit_code = 0, status = 0;
+    if (is_wait)
+    {
+        status = wait_program(pid, &exit_code);
+    }
 
     std::cout << "Ended pid=" << pid << " exit_code=" << exit_code << " status=" << status << "\n";
 }

@@ -21,6 +21,7 @@ int start_background(const char *program_path, int &status);
  * Wait for program to end.
  *
  * @param pid Process id of program.
+ * @param exit_code Pointer to store exit_code. (optional)
  * @return code of error or 0 if successful.
  */
 int wait_program(const int pid, int* exit_code = nullptr);

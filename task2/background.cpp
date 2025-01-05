@@ -56,7 +56,7 @@ int start_background(const char *program_path, int& status)
 }
 
 int start_background(const char *program_path) {
-    int status{};
+    int status = 0;
     return start_background(program_path, status);
 }
 
@@ -78,8 +78,12 @@ int wait_program(const int pid, int* exit_code)
 
     int status;
     waitpid(pid, &status, 0);
+    if (exit_code != nullptr)
+    {
+        *exit_code = WEXITSTATUS(status);
+    }
 
-    return status;
+    return WTERMSIG(status);
 
 #endif
 }
