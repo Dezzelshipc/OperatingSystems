@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Encoding=UTF-8
+Name=QtTemp
+Comment=Comment
+Exec=path/to/exec/task6_7 -k
+Hidden=false
+NoDisplay=false
+Terminal=false

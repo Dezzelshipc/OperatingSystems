@@ -7,6 +7,8 @@
 #include "Widgets/aboutwidget.h"
 #include "Widgets/changeserverwidget.h"
 
+#include "Utility/config.h"
+
 #include <QLineSeries>
 #include <QtGlobal>
 
@@ -158,16 +160,34 @@ void MainWindow::initSeries(const QList<Parser::DateTemp>& list)
     series->attachAxis(axisY);
 }
 
+void MainWindow::keyPressEvent(QKeyEvent *ev)
+{
+    auto kk = ev->keyCombination();
+    if (kk.keyboardModifiers() == Qt::KeyboardModifier::AltModifier
+        && kk.key() == Qt::Key::Key_Backspace)
+    {
+        Config::closable = true;
+    }
+    qDebug() << kk;
+}
+void MainWindow::closeEvent(QCloseEvent  *ev)
+{
+    if (!Config::closable)
+    {
+        ev->ignore();
+    }
+}
+
 void MainWindow::on_action_ChangeServer_triggered()
 {
-    QPointer<ChangeServerWidget> csw = new ChangeServerWidget;
+    QPointer<ChangeServerWidget> csw = new ChangeServerWidget(this);
     csw->show();
 }
 
 
 void MainWindow::on_action_About_triggered()
 {
-    QPointer<AboutWidget> about = new AboutWidget;
+    QPointer<AboutWidget> about = new AboutWidget(this);
     about->show();
 }
 

@@ -56,6 +56,9 @@ private:
     void changeEvent(QEvent *event) override;
     void changeChartTheme();
 
+    void keyPressEvent(QKeyEvent *ev) override;
+    void closeEvent(QCloseEvent  *ev) override;
+
 
 private slots:
     void on_action_ChangeServer_triggered();
